@@ -1,91 +1,92 @@
 # Decisions Needed
 
-This file records reversible decisions made autonomously and blockers that require the owner later. Irreversible actions are stopped and documented here instead of performed.
+This file records unresolved decisions or environment blockers that require owner action. Resolved troubleshooting noise has been condensed so the file stays useful.
 
-## Environment Blockers
+## Current Git Status
 
-### `rg` unavailable
+- Branch: `main`
+- Latest local commits:
+  - `c542393 feat: substrate, medicare vertical pack, AI review, docs`
+  - `72f21aa feat: substrate, medicare vertical pack, AI review slice, docs`
+- Owner reported `git push origin main` returns `Everything up-to-date`, so the main MVP commits appear to be on `origin/main`.
+- Current local-only change: this troubleshooting cleanup file.
 
-- Date: 2026-04-28
-- Command: `rg --files -g '!node_modules' -g '!.next' -g '!pnpm-lock.yaml'`
-- Result: PowerShell reported `Program 'rg.exe' failed to run: Access is denied`.
-- Why it was needed: Fast repository inventory.
-- What I did instead: Used native PowerShell `Get-ChildItem` and `git ls-files`.
+## Resolved During Hardening
 
-### `npm run lint` interactive prompt resolved
+### `npm run lint` was interactive
 
-- Date: 2026-04-28
-- Command: `npm run lint`
-- Result: `next lint` opened an interactive prompt asking how to configure ESLint and exited nonzero in unattended execution.
-- Why it was needed: Phase verification.
-- Resolution: Replaced the script with `node scripts/compliance-lint.mjs`, a no-dependency compliance lint that checks source suppressions, product guardrail language, and Supabase migration requirements. Official ESLint can still be added once npm registry access is available.
+- Original issue: `next lint` opened an interactive ESLint setup prompt.
+- Resolution: Replaced `npm run lint` with `node scripts/compliance-lint.mjs`.
+- Current status: `npm run lint` passes.
 
-### Git commit blocked by `.git/index.lock` permission
+### Typecheck depended on generated `.next/types`
 
-- Date: 2026-04-28
-- Command: `git add docs/inventory.md docs/decisions-needed.md docs/progress.md; git commit -m "chore: inventory existing codebase"`
-- Result: Git reported `fatal: Unable to create 'C:/Users/c_bas/Projects/Compliance based Medicare system/.git/index.lock': Permission denied`.
-- Why it was needed: Phase 0 required a commit.
-- Additional blocked command: `git add README.md package.json app docs src supabase test-fixtures; git commit -m "feat: build compliance ops MVP substrate"` failed with the same permission error.
-- Additional blocked command: `git add README.md package.json tsconfig.json tsconfig.typecheck.json app docs scripts src supabase test-fixtures; git commit -m "fix: stabilize mvp verification scripts"` failed with the same permission error.
-- What I did instead: Left all changes written in the working tree and continued with unblocked implementation work.
+- Original issue: running `tsc --noEmit` in some contexts failed before `.next/types` existed.
+- Resolution: Added `tsconfig.typecheck.json` and changed `npm run typecheck` to use it.
+- Current status: `npm run typecheck` passes.
 
-### Required push to `origin main` blocked
+### Node's built-in test runner hit sandbox spawn restrictions
 
-- Date: 2026-04-28
-- Branch verification: `git branch --show-current` returned `main`.
-- Intended command sequence: `git add -A && git commit -m "feat: hardening - stabilize verification scripts" && git push origin main`.
-- Actual command run: `git branch --show-current; git add -A; git commit -m "feat: hardening - stabilize verification scripts"; git push origin main`.
-- Result:
-  - `git add -A` failed with `fatal: Unable to create 'C:/Users/c_bas/Projects/Compliance based Medicare system/.git/index.lock': Permission denied`.
-  - `git commit` failed with the same `.git/index.lock` permission error.
-  - `git push origin main` failed with `fatal: unable to access 'https://github.com/chrisbaso/medicare-compliance.git/': Failed to connect to github.com port 443 via 127.0.0.1 after 2055 ms: Could not connect to server`.
-- Required diagnostic command: `gh auth status`.
-- Diagnostic result: `gh` is not installed or not on PATH: `The term 'gh' is not recognized as the name of a cmdlet, function, script file, or operable program.`
-- Current action: Per owner instruction, code work is paused until the Git write permission and GitHub connectivity/auth tooling issues are resolved.
+- Original issue: `node --test` failed with `spawn EPERM`.
+- Resolution: Replaced it with `node scripts/run-contract-tests.mjs`, which runs in-process.
+- Current status: `npm test` passes.
 
-### Dependency installation blocked by npm cache-only mode
+### GitHub CLI was installed but not on PATH
 
-- Date: 2026-04-28
-- Command: `npm install @supabase/supabase-js @supabase/ssr zod @t3-oss/env-nextjs @anthropic-ai/sdk`
+- Original issue: plain `gh` was not recognized.
+- Diagnosis: `gh.exe` exists at `C:\Program Files\GitHub CLI\gh.exe`.
+- Resolution: Use the full path or add `C:\Program Files\GitHub CLI` to PATH.
+
+## Remaining Environment Blockers
+
+### Package installation is blocked by npm cache-only mode
+
+- Command attempted: `npm install @supabase/supabase-js @supabase/ssr zod @t3-oss/env-nextjs @anthropic-ai/sdk`
 - Result: npm reported `ENOTCACHED` and `cache mode is 'only-if-cached' but no cached response is available`.
-- Why it was needed: Phase 1/4 requested Supabase, Zod validation, typed env helpers, and Anthropic integration.
-- What I did instead: Continued with dependency-free Supabase REST scaffolding, internal typed validation helpers, SQL migrations, and provider interfaces. Official SDK packages should be installed when registry access is available.
+- Impact: Official Supabase, Zod, t3-env, Anthropic, Vitest, and Playwright packages could not be installed from this environment.
+- Current workaround: Dependency-free Supabase REST scaffolding, internal validation helpers, and no-dependency contract tests are in place.
+- Recheck during focused SDK replacement session:
+  - `npm config get registry`: `https://registry.npmjs.org/`
+  - `npm config get offline`: `true`
+  - `npm config get prefer-offline`: `false`
+  - `npm config get cache`: `C:\Users\c_bas\AppData\Local\npm-cache`
+  - `npm config get cache-min`: `0`
+  - `npm config get cache-max`: `Infinity`
+  - `npm config get fetch-retries`: `2`
+  - `npm config get proxy`: `null`
+  - `npm config get https-proxy`: `null`
+  - Baseline `npm install` succeeded because existing packages were already cached.
+  - Installing new SDKs still failed with `ENOTCACHED`, so Phase B stopped per owner directive.
 
-### Test tooling installation blocked by npm cache-only mode
+### Local Next dev server is blocked by spawn permissions
 
-- Date: 2026-04-28
-- Command: `npm install -D vitest @playwright/test`
-- Result: npm reported `ENOTCACHED` and `cache mode is 'only-if-cached' but no cached response is available`.
-- Why it was needed: The MVP requested Vitest unit tests and Playwright e2e tests.
-- What I did instead: Added `npm test` using a no-spawn Node script at `scripts/run-contract-tests.mjs`. Formal Vitest/Playwright coverage is still blocked until packages can be installed.
-
-### Node test runner blocked by spawn permission
-
-- Date: 2026-04-28
-- Command: `node --test tests/*.test.mjs`
-- Result: Node test runner failed with `Error: spawn EPERM`.
-- Why it was needed: A no-dependency substitute for Vitest.
-- Resolution: Replaced it with `node scripts/run-contract-tests.mjs`, which runs contract tests in-process and now passes.
-
-### Local Next dev server blocked by spawn permission
-
-- Date: 2026-04-28
-- Command: `npm run dev -- --hostname 127.0.0.1 --port 3000`
+- Command attempted: `npm run dev -- --hostname 127.0.0.1 --port 3000`
 - Result: Next.js failed with `Error: spawn EPERM`.
-- Why it was needed: Browser demo verification.
-- What I did instead: Verified with `npm run build` and `npm run typecheck`. The app should run at `http://127.0.0.1:3000` when the environment allows Next to spawn its dev process.
+- Impact: Browser smoke testing from this sandbox is blocked.
+- Current workaround: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` all pass.
 
-## Reversible Decisions Made
+### Codex shell could not push to GitHub
+
+- Command attempted: `git push origin main`
+- Result in Codex shell: failed to connect to `github.com` via `127.0.0.1`.
+- Owner result: `Everything up-to-date`.
+- Current interpretation: The main work appears pushed from the owner shell, but this Codex shell still has network/proxy limitations.
+
+### `.git` ACL may block Git writes from this sandbox
+
+- Observed issue: earlier `git add` attempts failed with `.git/index.lock: Permission denied`.
+- Diagnosis: `.git` has explicit deny ACL entries for another SID. Attempts to remove them from this sandbox were denied.
+- Current interpretation: Owner-side Git operations may work even when Codex-side Git writes fail.
+- Latest retry: after verifying branch `main`, `git add -A` for this troubleshooting cleanup still failed with `.git/index.lock: Permission denied`; commit and push were not attempted.
+
+## Reversible Product Decisions Made
 
 ### Preserve the current demo UI as the MVP shell
 
-- Date: 2026-04-28
 - Decision: Keep the existing operations screens and refactor their data boundaries instead of rewriting the UI.
-- Reason: The screens already tell the compliance-first story well and preserve the Medicare / retirement-income separation.
+- Reason: The screens already tell the compliance-first story well and preserve Medicare / retirement-income separation.
 
 ### Treat existing fake data as seed material
 
-- Date: 2026-04-28
-- Decision: Convert the realistic fake data into Supabase seed content over time instead of discarding it.
-- Reason: It is useful demo material and aligns with the requested Northstar-style agency story, though it needs persistence and RLS.
+- Decision: Convert realistic fake data into Supabase seed content over time instead of discarding it.
+- Reason: It is useful demo material and aligns with the Northstar Senior Benefits demo story.
