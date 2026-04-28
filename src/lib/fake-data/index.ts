@@ -17,10 +17,10 @@ import {
 
 const agency: Agency = {
   id: "agency-1",
-  name: "Harbor Senior Market Operations",
-  slug: "harbor-senior-market-operations",
+  name: "Northstar Senior Benefits",
+  slug: "northstar-senior-benefits",
   timezone: "America/Chicago",
-  region: "South Central"
+  region: "Midwest"
 };
 
 const users: User[] = [

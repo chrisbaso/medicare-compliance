@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { AppShell } from "@/components/app-shell";
 import { DemoAppProvider } from "@/components/providers/demo-app-provider";
+import { RootFrame } from "@/components/root-frame";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <DemoAppProvider>
-          <AppShell>{children}</AppShell>
+          <RootFrame>{children}</RootFrame>
         </DemoAppProvider>
       </body>
     </html>

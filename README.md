@@ -1,63 +1,74 @@
-# Compliance-Based Medicare System
+# Compliance Ops for Medicare Agencies
 
-Compliance-Based Medicare System is a demo-first, compliance-first operations platform for Medicare agencies. It is designed to support intake, conversation review, consent tracking, compliance QA, client service workflows, and a strictly separate retirement-income follow-up workflow.
+Review Medicare conversations, consent, QA flags, tasks, and separate retirement-income handoffs in one audit-ready workspace.
 
-## Product Summary
-- Internal operations platform for Medicare agencies
-- Not an AI sales bot
-- No Medicare plan recommendations
-- No annuity recommendations
-- Medicare workflows stay separate from retirement-income / annuity follow-up
-- Retirement-income interest must move into a separate, consented, auditable workflow
-- Human-in-the-loop handoffs are preferred over autonomous action
+This is not an AI sales bot. It does not recommend Medicare plans, annuities, life insurance, or retirement-income products. AI is used to review transcripts, cite risky language, explain compliance concerns, and route work to humans.
 
-## Current MVP Shape
-- Agency dashboard
-- Client list and client detail
-- Conversation inbox and conversation detail
-- Consent ledger
-- Retirement-income follow-up workflow
+## What the Demo Shows
+
+- Conversation inbox and detail review
+- Paste/upload transcript AI compliance review
+- Inline transcript flags with human confirm/dismiss reasons
+- Scope-of-appointment and consent ledger visibility
+- Separate retirement-income follow-up workflow
 - Compliance QA dashboard
-- Unified task list
-- Demo data with Postgres-ready domain types
+- Client timeline and unified task list
+- Supabase schema, RLS policies, seed data, and append-only audit/consent tables
 
-## Tech Stack
-- Next.js App Router
-- TypeScript
-- Tailwind CSS
-- Demo-data-first architecture with Postgres-ready schema
+## Product Guardrails
+
+- Medicare workflows stay operationally separate from retirement-income follow-up.
+- Consent records are append-only; revocation creates a new record.
+- Audit logs are append-only.
+- No autonomous outbound sales.
+- Human reviewers own decisions.
 
 ## Local Setup
-1. Install dependencies:
 
 ```bash
 npm install
-```
-
-2. Start the local dev server:
-
-```bash
 npm run dev
 ```
 
-3. Build for production verification:
+Open `http://localhost:3000`.
+
+## Verification
 
 ```bash
 npm run build
+npx tsc --noEmit
 ```
 
-4. Run lint if available:
+`npm run lint` is currently blocked by the interactive `next lint` setup prompt. Vitest, Playwright, Supabase SDK, Zod, and Anthropic SDK installation are blocked in this environment by npm cache-only mode; see `docs/decisions-needed.md`.
+
+## Supabase
+
+Apply:
 
 ```bash
-npm run lint
+supabase/migrations/202604280001_initial_compliance_ops.sql
+supabase/seed.sql
 ```
 
-## Notes
-- This repo currently uses demo data only.
-- No authentication or external integrations are wired yet.
-- The app should preserve auditable workflow records: who, what, when, source, consent status, and next action.
+Required environment variables for real Supabase/AI operation:
 
-## Docs
-- [Product spec](docs/PRODUCT_SPEC.md)
-- [Build plan](docs/BUILD_PLAN.md)
-- [Earlier architecture notes](docs/mvp-architecture.md)
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+APP_ENV=development
+```
+
+## Key Docs
+
+- `docs/inventory.md`
+- `docs/architecture.md`
+- `docs/PRODUCT_SPEC.md`
+- `docs/DEMO_SCRIPT.md`
+- `docs/COMPLIANCE_RULES.md`
+- `docs/operations.md`
+- `docs/future-tax-vertical.md`
+- `docs/decisions-needed.md`
+- `docs/progress.md`

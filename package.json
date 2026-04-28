@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "node scripts/compliance-lint.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "test": "node scripts/run-contract-tests.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

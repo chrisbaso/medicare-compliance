@@ -73,7 +73,17 @@ export function getConsentSummary(
     };
   }
 
-  if (records.some((record) => record.status === "revoked" || record.status === "expired")) {
+  const latestRecordsByType = records.reduce<Record<string, ConsentRecord>>((accumulator, record) => {
+    const current = accumulator[record.consentType];
+    if (!current || Date.parse(record.capturedAt) > Date.parse(current.capturedAt)) {
+      accumulator[record.consentType] = record;
+    }
+
+    return accumulator;
+  }, {});
+  const latestRecords = Object.values(latestRecordsByType);
+
+  if (latestRecords.some((record) => record.status === "revoked" || record.status === "expired")) {
     return {
       label: isSeparateFollowUp ? "blocked" : "needs refresh",
       detail: isSeparateFollowUp
@@ -83,7 +93,7 @@ export function getConsentSummary(
     };
   }
 
-  if (records.some((record) => record.status === "pending" || !record.evidenceComplete)) {
+  if (latestRecords.some((record) => record.status === "pending" || !record.evidenceComplete)) {
     return {
       label: isSeparateFollowUp ? "blocked" : "pending",
       detail: isSeparateFollowUp

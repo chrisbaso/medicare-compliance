@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { analyzeTranscript } from "@/lib/analysis/analyzeTranscript";
+import { runAiComplianceReview } from "@/lib/core/ai-review/review-service";
+import { AiReviewResult } from "@/lib/core/ai-review/types";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { useDemoApp } from "@/components/providers/demo-app-provider";
@@ -34,6 +36,13 @@ export default function ConversationDetailPage() {
   const [localTasks, setLocalTasks] = useState<
     { id: string; title: string; createdAt: string }[]
   >([]);
+  const [transcriptDraft, setTranscriptDraft] = useState("");
+  const [aiReviewResult, setAiReviewResult] = useState<AiReviewResult | null>(null);
+  const [isAiReviewing, setIsAiReviewing] = useState(false);
+  const [aiReviewError, setAiReviewError] = useState<string | null>(null);
+  const [flagReviewDecisions, setFlagReviewDecisions] = useState<
+    Record<string, { status: "confirmed" | "dismissed"; reason: string; reviewedAt: string }>
+  >({});
   const conversation = getConversationById(state, params.id);
 
   if (!conversation) {
@@ -79,6 +88,14 @@ export default function ConversationDetailPage() {
   );
   const separateConsentGranted =
     separateConsentRecord?.status === "granted" && separateConsentRecord.evidenceComplete;
+  const defaultTranscriptText = useMemo(
+    () =>
+      transcript
+        .map((entry) => `${entry.speakerName}: ${entry.utterance}`)
+        .join("\n"),
+    [transcript]
+  );
+  const reviewTranscriptText = transcriptDraft.trim() || defaultTranscriptText;
 
   function handleCreateTask() {
     const nextTask = {
@@ -152,6 +169,64 @@ export default function ConversationDetailPage() {
     setDemoNotice(
       "Separate follow-up workflow created in demo state with consent still required before outreach."
     );
+  }
+
+  async function handleRunAiReview() {
+    setIsAiReviewing(true);
+    setAiReviewError(null);
+
+    try {
+      const result = await runAiComplianceReview({
+        verticalSlug: "medicare",
+        conversationId: activeConversation.id,
+        transcript: reviewTranscriptText,
+        hasScopeOfAppointment: consents.some(
+          (record) =>
+            record.consentType === "soa" &&
+            record.status === "granted" &&
+            record.evidenceComplete
+        ),
+        hasSeparateRetirementConsent: separateConsentGranted
+      });
+
+      setAiReviewResult(result);
+      setDemoNotice(
+        `AI compliance review completed with ${result.flags.length} flag${result.flags.length === 1 ? "" : "s"} for human review.`
+      );
+    } catch (error) {
+      setAiReviewError(error instanceof Error ? error.message : "AI review failed.");
+    } finally {
+      setIsAiReviewing(false);
+    }
+  }
+
+  function handleTranscriptFileUpload(file?: File) {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setTranscriptDraft(String(reader.result ?? ""));
+      setAiReviewResult(null);
+      setFlagReviewDecisions({});
+    };
+    reader.readAsText(file);
+  }
+
+  function handleFlagDecision(
+    flagKey: string,
+    status: "confirmed" | "dismissed",
+    reason: string
+  ) {
+    setFlagReviewDecisions((current) => ({
+      ...current,
+      [flagKey]: {
+        status,
+        reason,
+        reviewedAt: new Date().toISOString()
+      }
+    }));
   }
 
   return (
@@ -289,6 +364,120 @@ export default function ConversationDetailPage() {
       </Card>
 
       <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <Card>
+          <CardHeader
+            eyebrow="AI compliance review"
+            title="Transcript review pipeline"
+            description="Paste or upload a transcript, run the Medicare vertical review, and confirm or dismiss each flag with a reviewer reason."
+            actions={
+              <Badge
+                value={aiReviewResult ? `${aiReviewResult.provider} review` : "Ready"}
+                tone={aiReviewResult ? "success" : "neutral"}
+                className="normal-case"
+              />
+            }
+          />
+
+          <div className="space-y-4">
+            <textarea
+              value={transcriptDraft}
+              onChange={(event) => {
+                setTranscriptDraft(event.target.value);
+                setAiReviewResult(null);
+                setFlagReviewDecisions({});
+              }}
+              placeholder={defaultTranscriptText || "Paste transcript text for review"}
+              className="min-h-48 w-full rounded-2xl border border-stone-200 bg-[#fcfaf5] p-4 text-sm leading-6 text-stone-800 outline-none focus:border-teal-500"
+            />
+
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-stone-100 px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-200">
+                Upload .txt
+                <input
+                  type="file"
+                  accept=".txt,text/plain"
+                  className="hidden"
+                  onChange={(event) => handleTranscriptFileUpload(event.target.files?.[0])}
+                />
+              </label>
+              <Button onClick={handleRunAiReview} disabled={isAiReviewing || reviewTranscriptText.length === 0}>
+                {isAiReviewing ? "Reviewing..." : "Run AI review"}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setTranscriptDraft(defaultTranscriptText);
+                  setAiReviewResult(null);
+                  setFlagReviewDecisions({});
+                }}
+              >
+                Use stored transcript
+              </Button>
+            </div>
+
+            {aiReviewError ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-900">
+                {aiReviewError}
+              </div>
+            ) : null}
+
+            {aiReviewResult ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-stone-200 bg-[#fcfaf5] p-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge value={`${aiReviewResult.flags.length} flags`} tone={aiReviewResult.flags.length > 0 ? "warning" : "success"} className="normal-case" />
+                    <Badge value={aiReviewResult.model} tone="info" className="normal-case" />
+                    <Badge value={aiReviewResult.promptVersion} tone="neutral" className="normal-case" />
+                  </div>
+                  <div className="mt-4 text-sm leading-7 text-stone-700">
+                    {renderAiReviewedTranscript(reviewTranscriptText, aiReviewResult.flags)}
+                  </div>
+                </div>
+
+                {aiReviewResult.flags.length > 0 ? (
+                  <div className="space-y-3">
+                    {aiReviewResult.flags.map((flag, index) => {
+                      const flagKey = `${flag.rule_id}-${flag.transcript_offset_start}-${index}`;
+                      const decision = flagReviewDecisions[flagKey];
+
+                      return (
+                        <div key={flagKey} className="rounded-2xl border border-stone-200 bg-white p-5">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="font-medium text-ink-950">{titleize(flag.flag_type)}</p>
+                              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-stone-500">
+                                {flag.rule_id}
+                              </p>
+                            </div>
+                            <SeverityBadge value={flag.severity} />
+                          </div>
+                          <blockquote className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                            {flag.quoted_text}
+                          </blockquote>
+                          <p className="mt-3 text-sm leading-6 text-stone-700">{flag.reasoning}</p>
+                          <p className="mt-2 text-sm leading-6 text-stone-600">
+                            <strong className="text-ink-950">Suggested remediation:</strong>{" "}
+                            {flag.suggested_remediation}
+                          </p>
+                          <FlagDecisionControls
+                            flagKey={flagKey}
+                            decision={decision}
+                            onDecision={handleFlagDecision}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+                    No AI flags found. A human reviewer should still verify the conversation before closing the workflow.
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </Card>
+
         <Card>
           <CardHeader
             eyebrow="AI-style summary"
@@ -754,4 +943,95 @@ function renderHighlightedUtterance(text: string) {
 
     return <span key={`${segment}-${index}`}>{segment}</span>;
   });
+}
+
+function renderAiReviewedTranscript(
+  text: string,
+  flags: AiReviewResult["flags"]
+) {
+  if (flags.length === 0) {
+    return text;
+  }
+
+  const sortedFlags = flags
+    .slice()
+    .filter((flag) => flag.transcript_offset_end > flag.transcript_offset_start)
+    .sort((left, right) => left.transcript_offset_start - right.transcript_offset_start);
+  const segments: ReactNode[] = [];
+  let cursor = 0;
+
+  sortedFlags.forEach((flag, index) => {
+    const start = Math.max(0, Math.min(flag.transcript_offset_start, text.length));
+    const end = Math.max(start, Math.min(flag.transcript_offset_end, text.length));
+
+    if (start > cursor) {
+      segments.push(<span key={`plain-${index}`}>{text.slice(cursor, start)}</span>);
+    }
+
+    segments.push(
+      <mark
+        key={`flag-${flag.rule_id}-${index}`}
+        className="rounded bg-rose-100 px-1 text-rose-950"
+        title={`${flag.rule_id}: ${flag.reasoning}`}
+      >
+        {text.slice(start, end)}
+      </mark>
+    );
+    cursor = end;
+  });
+
+  if (cursor < text.length) {
+    segments.push(<span key="plain-tail">{text.slice(cursor)}</span>);
+  }
+
+  return segments;
+}
+
+function FlagDecisionControls({
+  flagKey,
+  decision,
+  onDecision
+}: {
+  flagKey: string;
+  decision?: { status: "confirmed" | "dismissed"; reason: string; reviewedAt: string };
+  onDecision: (flagKey: string, status: "confirmed" | "dismissed", reason: string) => void;
+}) {
+  const [reason, setReason] = useState(decision?.reason ?? "");
+
+  return (
+    <div className="mt-4 rounded-2xl border border-stone-200 bg-[#fcfaf5] p-4">
+      <label className="grid gap-2">
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+          Reviewer reason
+        </span>
+        <input
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          placeholder="Document why the flag is confirmed or dismissed"
+          className="h-11 rounded-2xl border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none focus:border-teal-500"
+        />
+      </label>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          variant="secondary"
+          onClick={() => onDecision(flagKey, "confirmed", reason || "Reviewer confirmed the AI flag.")}
+        >
+          Confirm flag
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => onDecision(flagKey, "dismissed", reason || "Reviewer dismissed the AI flag.")}
+        >
+          Dismiss flag
+        </Button>
+        {decision ? (
+          <Badge
+            value={`${decision.status} ${formatDateTime(decision.reviewedAt)}`}
+            tone={decision.status === "confirmed" ? "warning" : "neutral"}
+            className="normal-case"
+          />
+        ) : null}
+      </div>
+    </div>
+  );
 }

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, useReducer } from "react";
 import { initialDemoData } from "@/lib/demo-data";
+import { createConsentRecord, createRevocationRecord } from "@/lib/core/consent/consent-ledger";
 import { getConversationById } from "@/lib/demo-selectors";
 import { DemoDataState, FollowUpOpportunity, QaOutcome, TaskStatus } from "@/lib/types";
 
@@ -85,17 +86,33 @@ function reducer(state: DemoDataState, action: DemoAction): DemoDataState {
       };
     }
     case "updateConsentStatus": {
-      const consentRecords = state.consentRecords.map((record) =>
-        record.id === action.consentId
-          ? {
-              ...record,
-              status: action.status,
-              evidenceComplete: action.status === "granted" ? true : record.evidenceComplete
-            }
-          : record
-      );
+      const existingRecord = state.consentRecords.find((record) => record.id === action.consentId);
 
-      const linkedRecord = consentRecords.find((record) => record.id === action.consentId);
+      if (!existingRecord) {
+        return state;
+      }
+
+      const appendedRecord =
+        action.status === "revoked"
+          ? createRevocationRecord(existingRecord, "Consent revoked from local demo action.")
+          : createConsentRecord({
+              clientId: existingRecord.clientId,
+              conversationId: existingRecord.conversationId,
+              followupWorkflowId: existingRecord.followupWorkflowId,
+              linkedOpportunityId: existingRecord.linkedOpportunityId,
+              consentType: existingRecord.consentType,
+              status: action.status,
+              captureMethod:
+                action.status === "granted"
+                  ? "local demo consent capture"
+                  : "local demo consent update",
+              evidenceRef: existingRecord.evidenceRef,
+              evidenceComplete: action.status === "granted" ? true : existingRecord.evidenceComplete,
+              notes: `Append-only consent event created from ${existingRecord.id}.`
+            });
+
+      const consentRecords = [appendedRecord, ...state.consentRecords];
+      const linkedRecord = appendedRecord;
       let followUpOpportunities = state.followUpOpportunities;
       if (linkedRecord?.linkedOpportunityId) {
         followUpOpportunities = state.followUpOpportunities.map((opportunity) =>
@@ -126,7 +143,16 @@ function reducer(state: DemoDataState, action: DemoAction): DemoDataState {
         consentRecords,
         followupWorkflows: followUpOpportunities,
         followUpOpportunities,
-        auditEvents: [createAudit(state, "consent", action.consentId, "status_changed", `Consent updated to ${action.status}.`), ...state.auditEvents]
+        auditEvents: [
+          createAudit(
+            state,
+            "consent",
+            appendedRecord.id,
+            action.status === "revoked" ? "revocation_recorded" : "consent_recorded",
+            `Append-only consent record created with status ${action.status}.`
+          ),
+          ...state.auditEvents
+        ]
       };
     }
     case "createFollowUpFromConversation": {
