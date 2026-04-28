@@ -30,6 +30,20 @@ This file records reversible decisions made autonomously and blockers that requi
 - Additional blocked command: `git add README.md package.json tsconfig.json tsconfig.typecheck.json app docs scripts src supabase test-fixtures; git commit -m "fix: stabilize mvp verification scripts"` failed with the same permission error.
 - What I did instead: Left all changes written in the working tree and continued with unblocked implementation work.
 
+### Required push to `origin main` blocked
+
+- Date: 2026-04-28
+- Branch verification: `git branch --show-current` returned `main`.
+- Intended command sequence: `git add -A && git commit -m "feat: hardening - stabilize verification scripts" && git push origin main`.
+- Actual command run: `git branch --show-current; git add -A; git commit -m "feat: hardening - stabilize verification scripts"; git push origin main`.
+- Result:
+  - `git add -A` failed with `fatal: Unable to create 'C:/Users/c_bas/Projects/Compliance based Medicare system/.git/index.lock': Permission denied`.
+  - `git commit` failed with the same `.git/index.lock` permission error.
+  - `git push origin main` failed with `fatal: unable to access 'https://github.com/chrisbaso/medicare-compliance.git/': Failed to connect to github.com port 443 via 127.0.0.1 after 2055 ms: Could not connect to server`.
+- Required diagnostic command: `gh auth status`.
+- Diagnostic result: `gh` is not installed or not on PATH: `The term 'gh' is not recognized as the name of a cmdlet, function, script file, or operable program.`
+- Current action: Per owner instruction, code work is paused until the Git write permission and GitHub connectivity/auth tooling issues are resolved.
+
 ### Dependency installation blocked by npm cache-only mode
 
 - Date: 2026-04-28
