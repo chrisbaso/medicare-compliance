@@ -17,6 +17,10 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   let response = NextResponse.next({ request });
 
+  if (pathname.startsWith("/api/")) {
+    return response;
+  }
+
   let supabaseConfig: ReturnType<typeof requireSupabasePublicEnv>;
   try {
     supabaseConfig = requireSupabasePublicEnv();

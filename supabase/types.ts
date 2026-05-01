@@ -446,6 +446,20 @@ export interface Database {
         Args: Record<string, never>;
         Returns: Database["public"]["Enums"]["app_role"][];
       };
+      insert_review_results: {
+        Args: {
+          p_conversation_id: string;
+          p_actor_user_id: string;
+          p_actor_role: string | null;
+          p_provider: string;
+          p_model: string;
+          p_prompt_version: string;
+          p_flags: Json;
+          p_consent_status_snapshot: string | null;
+          p_correlation_id: string;
+        };
+        Returns: Database["public"]["Tables"]["compliance_flags"]["Row"][];
+      };
       prevent_update_delete: {
         Args: Record<string, never>;
         Returns: never;

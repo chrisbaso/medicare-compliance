@@ -18,6 +18,9 @@ Date: 2026-05-01
 - Auth middleware refreshes Supabase sessions and redirects protected routes to `/sign-in` when Supabase is configured.
 - Server-side auth helpers can resolve the current Supabase Auth user to `public.users`, `public.user_roles`, and `public.organizations`.
 - The sign-in form uses Supabase Auth and redirects to `/dashboard`; `/sign-out` clears the Supabase session.
+- `POST /api/conversations/[id]/review` reads conversation transcript and consent state from Supabase, runs the AI review pipeline server-side, and persists Anthropic-backed flags through a Postgres RPC.
+- `supabase/migrations/202604300001_review_rpc.sql` adds the transactional `insert_review_results` function for compliance flags plus audit logging.
+- `/conversations/[id]` now renders a Supabase-backed review surface for UUID conversation IDs while preserving the existing local demo component for legacy `conv-*` demo IDs.
 
 ## What is scaffolded but not wired
 
@@ -25,13 +28,11 @@ Date: 2026-05-01
 - Repository helpers use typed Supabase clients, but most screens still render local demo state instead of querying Supabase.
 - The reducer-backed demo state now accepts the authenticated user as the current actor, but the screens still read most business data from local demo fixtures.
 - Seeded app users are not linked to `auth.users` yet because no live Supabase project exists in this environment.
-- AI review on the conversation page is not an end-to-end audited Supabase + Anthropic workflow.
+- AI review code is wired end-to-end for Supabase + Anthropic, but it has not been executed against a live Supabase project from this environment.
 - Audit and consent append-only behavior exists in SQL migrations and local helper logic, but has not been exercised against a live database from this environment.
 
 ## What is not started
 
-- The `/api/conversations/[id]/review` route that reads Supabase data, calls Anthropic, writes `compliance_flags`, and writes `audit_logs`.
-- The `insert_review_results` Postgres RPC migration.
 - Vitest migration and Playwright e2e coverage.
 - Real ESLint migration.
 - Integration tests against local Supabase/Postgres.

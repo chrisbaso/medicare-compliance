@@ -72,11 +72,11 @@ function checkProductGuardrails(file, content) {
   }
 }
 
-function checkSupabaseMigration(file, content) {
-  if (!relative(file).startsWith("supabase/migrations/")) {
-    return;
-  }
-
+function checkSupabaseMigrationSet(filesWithContent) {
+  const migrationContents = filesWithContent
+    .filter(({ file }) => relative(file).startsWith("supabase/migrations/"))
+    .map(({ content }) => content.toLowerCase())
+    .join("\n\n");
   const required = [
     "enable row level security",
     "create table public.audit_logs",
@@ -87,8 +87,8 @@ function checkSupabaseMigration(file, content) {
   ];
 
   for (const phrase of required) {
-    if (!content.toLowerCase().includes(phrase)) {
-      errors.push(`${relative(file)} is missing required migration phrase '${phrase}'.`);
+    if (!migrationContents.includes(phrase)) {
+      errors.push(`Supabase migrations are missing required phrase '${phrase}'.`);
     }
   }
 }
@@ -101,17 +101,23 @@ function checkDocsDecisions(content) {
 }
 
 const files = await collectFiles(root);
+const filesWithContent = await Promise.all(
+  files.map(async (file) => ({
+    file,
+    content: await readFile(file, "utf8")
+  }))
+);
 
-for (const file of files) {
-  const content = await readFile(file, "utf8");
+for (const { file, content } of filesWithContent) {
   checkNoSuppression(file, content);
   checkProductGuardrails(file, content);
-  checkSupabaseMigration(file, content);
 
   if (relative(file) === "docs/decisions-needed.md") {
     checkDocsDecisions(content);
   }
 }
+
+checkSupabaseMigrationSet(filesWithContent);
 
 if (errors.length > 0) {
   console.error(errors.join("\n"));

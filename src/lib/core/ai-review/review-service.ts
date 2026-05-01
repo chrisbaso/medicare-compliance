@@ -7,7 +7,7 @@ import { medicareComplianceRules } from "@/lib/verticals/medicare/compliance-rul
 
 export interface AiReviewServiceOptions {
   provider?: LlmProvider;
-  model?: "claude-opus-4" | "claude-sonnet-4.5" | string;
+  model?: "claude-opus-4-1-20250805" | "claude-sonnet-4-20250514" | string;
 }
 
 export async function runAiComplianceReview(
@@ -22,7 +22,7 @@ export async function runAiComplianceReview(
     rules: medicareComplianceRules,
     transcript: input.transcript
   });
-  const model = options.model ?? "claude-sonnet-4.5";
+  const model = options.model ?? "claude-sonnet-4-20250514";
   const response = await options.provider.complete({
     model,
     temperature: 0,
