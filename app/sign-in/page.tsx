@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { supabaseAuthPasswordSignIn } from "@/lib/core/supabase/rest-client";
+import { createBrowserClient } from "@/lib/core/supabase/browser";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("dana@northstar.example");
@@ -14,8 +14,14 @@ export default function SignInPage() {
     setStatus("Signing in with Supabase Auth...");
 
     try {
-      await supabaseAuthPasswordSignIn({ email, password });
-      setStatus("Supabase Auth accepted the credentials. Session persistence will be wired after SDK install.");
+      const supabase = createBrowserClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        throw error;
+      }
+
+      setStatus("Supabase Auth accepted the credentials. Session middleware is not wired yet.");
     } catch (error) {
       setStatus(
         error instanceof Error

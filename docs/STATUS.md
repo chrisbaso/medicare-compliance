@@ -12,21 +12,21 @@ Date: 2026-05-01
 - The app builds as a Next.js demo shell with in-memory state.
 - The existing UI surfaces conversation review, consent ledger, retirement-income follow-up separation, compliance dashboard, client views, and tasks from local demo data.
 - The deterministic AI review fallback exists locally and can return preview flags without a live Anthropic key.
+- `src/lib/core/supabase/browser.ts`, `src/lib/core/supabase/server.ts`, and `src/lib/core/supabase/service.ts` use the official Supabase SDK helpers.
+- `src/lib/core/llm/anthropic.ts` uses the official Anthropic SDK behind the existing `LlmProvider` interface.
+- Environment validation now uses `@t3-oss/env-nextjs` and `zod`, with server-only secrets isolated from browser imports.
 
 ## What is scaffolded but not wired
 
 - Supabase schema and seed SQL exist, but no live Supabase project is connected from this environment.
-- Supabase SDK wiring is not complete yet. The official packages are installed, but the app still needs to replace the previous REST scaffolding.
-- Anthropic SDK wiring is not complete yet. The official package is installed, but the app still needs to replace the previous fetch implementation.
+- Repository helpers use typed Supabase clients, but most screens still render local demo state instead of querying Supabase.
+- The sign-in page calls Supabase Auth through the browser SDK, but durable route protection and server-side redirects are not implemented yet.
 - Authentication is scaffolded visually, but not wired end-to-end to a durable Supabase session.
 - AI review on the conversation page is not an end-to-end audited Supabase + Anthropic workflow.
 - Audit and consent append-only behavior exists in SQL migrations and local helper logic, but has not been exercised against a live database from this environment.
 
 ## What is not started
 
-- Replacing hand-rolled Supabase REST scaffolding throughout the app with `@supabase/supabase-js` and `@supabase/ssr`.
-- Replacing the Anthropic REST scaffold throughout the app with `@anthropic-ai/sdk`.
-- Zod/t3-env-based environment validation.
 - Real Supabase Auth middleware/session integration.
 - The `/api/conversations/[id]/review` route that reads Supabase data, calls Anthropic, writes `compliance_flags`, and writes `audit_logs`.
 - The `insert_review_results` Postgres RPC migration.

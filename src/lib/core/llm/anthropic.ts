@@ -1,38 +1,33 @@
-import { assertAnthropicConfigured, getAppEnv } from "@/lib/core/env";
+import Anthropic from "@anthropic-ai/sdk";
+import { requireAnthropicEnv } from "@/lib/core/env/server";
 import { LlmCompletionRequest, LlmProvider } from "@/lib/core/llm/types";
+
+type AnthropicMessageRole = "user" | "assistant";
 
 export function createAnthropicProvider(): LlmProvider {
   return {
     async complete(request: LlmCompletionRequest) {
-      const { apiKey } = assertAnthropicConfigured(getAppEnv());
+      const { anthropicApiKey } = requireAnthropicEnv();
+      const anthropic = new Anthropic({ apiKey: anthropicApiKey });
       const system = request.messages.find((message) => message.role === "system")?.content;
       const messages = request.messages
         .filter((message) => message.role !== "system")
-        .map((message) => ({ role: message.role, content: message.content }));
+        .map((message) => ({
+          role: message.role as AnthropicMessageRole,
+          content: message.content
+        }));
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01"
-        },
-        body: JSON.stringify({
-          model: request.model,
-          max_tokens: request.maxTokens ?? 2000,
-          temperature: request.temperature ?? 0,
-          system,
-          messages
-        })
+      const response = await anthropic.messages.create({
+        model: request.model,
+        max_tokens: request.maxTokens ?? 2000,
+        temperature: request.temperature ?? 0,
+        system,
+        messages
       });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Anthropic request failed (${response.status}): ${text}`);
-      }
-
-      const json = await response.json() as { content?: { type: string; text?: string }[] };
-      const text = json.content?.find((part) => part.type === "text")?.text ?? "";
+      const text = response.content
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("");
 
       return {
         text,

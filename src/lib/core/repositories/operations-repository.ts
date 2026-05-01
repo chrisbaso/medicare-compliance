@@ -1,67 +1,99 @@
-import { supabaseRestRequest } from "@/lib/core/supabase/rest-client";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { Database, Inserts } from "../../../../supabase/types";
+import {
+  auditLogRowToAuditEvent,
+  clientRowToClient,
+  complianceFlagRowToComplianceFlag,
+  consentRowToConsentRecord,
+  conversationRowToConversation
+} from "@/lib/core/repositories/mappers";
 
-export interface RepositorySession {
-  organizationId: string;
-  accessToken?: string;
+export type AppSupabaseClient = SupabaseClient<Database>;
+
+function throwIfSupabaseError(error: { message: string } | null) {
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
-function orgFilter(session: RepositorySession, separator = "?") {
-  return `${separator}organization_id=eq.${session.organizationId}`;
+function requireReturnedRow<Row>(data: Row | null, operation: string): Row {
+  if (!data) {
+    throw new Error(`Supabase did not return a row for ${operation}.`);
+  }
+
+  return data;
 }
 
-export async function listClients(session: RepositorySession) {
-  return supabaseRestRequest<unknown[]>({
-    table: "clients",
-    query: `${orgFilter(session)}&order=last_name.asc,first_name.asc`,
-    accessToken: session.accessToken
-  });
+export async function listClients(supabase: AppSupabaseClient) {
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .order("last_name", { ascending: true })
+    .order("first_name", { ascending: true });
+
+  throwIfSupabaseError(error);
+  return (data ?? []).map(clientRowToClient);
 }
 
-export async function listConversations(session: RepositorySession) {
-  return supabaseRestRequest<unknown[]>({
-    table: "conversations",
-    query: `${orgFilter(session)}&order=started_at.desc`,
-    accessToken: session.accessToken
-  });
+export async function listConversations(supabase: AppSupabaseClient) {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("*")
+    .order("started_at", { ascending: false });
+
+  throwIfSupabaseError(error);
+  return (data ?? []).map(conversationRowToConversation);
 }
 
-export async function listConsentLedger(session: RepositorySession, clientId?: string) {
-  const clientFilter = clientId ? `&client_id=eq.${clientId}` : "";
-  return supabaseRestRequest<unknown[]>({
-    table: "consents",
-    query: `${orgFilter(session)}${clientFilter}&order=captured_at.desc`,
-    accessToken: session.accessToken
-  });
+export async function listConsentLedger(supabase: AppSupabaseClient, clientId?: string) {
+  let query = supabase
+    .from("consents")
+    .select("*")
+    .order("captured_at", { ascending: false });
+
+  if (clientId) {
+    query = query.eq("client_id", clientId);
+  }
+
+  const { data, error } = await query;
+  throwIfSupabaseError(error);
+  return (data ?? []).map(consentRowToConsentRecord);
 }
 
-export async function insertConsentRecord(session: RepositorySession, record: Record<string, unknown>) {
-  return supabaseRestRequest<unknown[]>({
-    table: "consents",
-    method: "POST",
-    body: {
-      ...record,
-      organization_id: session.organizationId
-    },
-    accessToken: session.accessToken
-  });
+export async function insertConsentRecord(
+  supabase: AppSupabaseClient,
+  record: Inserts<"consents">
+) {
+  const { data, error } = await supabase
+    .from("consents")
+    .insert(record)
+    .select()
+    .single();
+
+  throwIfSupabaseError(error);
+  return consentRowToConsentRecord(requireReturnedRow(data, "insertConsentRecord"));
 }
 
-export async function listComplianceFlags(session: RepositorySession) {
-  return supabaseRestRequest<unknown[]>({
-    table: "compliance_flags",
-    query: `${orgFilter(session)}&order=flagged_at.desc`,
-    accessToken: session.accessToken
-  });
+export async function listComplianceFlags(supabase: AppSupabaseClient) {
+  const { data, error } = await supabase
+    .from("compliance_flags")
+    .select("*")
+    .order("flagged_at", { ascending: false });
+
+  throwIfSupabaseError(error);
+  return (data ?? []).map(complianceFlagRowToComplianceFlag);
 }
 
-export async function insertAuditLog(session: RepositorySession, event: Record<string, unknown>) {
-  return supabaseRestRequest<unknown[]>({
-    table: "audit_logs",
-    method: "POST",
-    body: {
-      ...event,
-      organization_id: session.organizationId
-    },
-    accessToken: session.accessToken
-  });
+export async function insertAuditLog(
+  supabase: AppSupabaseClient,
+  event: Inserts<"audit_logs">
+) {
+  const { data, error } = await supabase
+    .from("audit_logs")
+    .insert(event)
+    .select()
+    .single();
+
+  throwIfSupabaseError(error);
+  return auditLogRowToAuditEvent(requireReturnedRow(data, "insertAuditLog"));
 }

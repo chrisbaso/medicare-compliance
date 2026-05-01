@@ -29,6 +29,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["organizations"]["Insert"]>;
+        Relationships: [];
       };
       users: {
         Row: {
@@ -56,6 +57,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
+        Relationships: [];
       };
       user_roles: {
         Row: {
@@ -73,6 +75,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["user_roles"]["Insert"]>;
+        Relationships: [];
       };
       clients: {
         Row: {
@@ -108,6 +111,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["clients"]["Insert"]>;
+        Relationships: [];
       };
       conversations: {
         Row: {
@@ -147,6 +151,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["conversations"]["Insert"]>;
+        Relationships: [];
       };
       conversation_messages: {
         Row: {
@@ -172,6 +177,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["conversation_messages"]["Insert"]>;
+        Relationships: [];
       };
       consents: {
         Row: {
@@ -217,6 +223,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["consents"]["Insert"]>;
+        Relationships: [];
       };
       workflow_states: {
         Row: {
@@ -240,6 +247,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["workflow_states"]["Insert"]>;
+        Relationships: [];
       };
       workflow_transitions: {
         Row: {
@@ -269,6 +277,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["workflow_transitions"]["Insert"]>;
+        Relationships: [];
       };
       compliance_flags: {
         Row: {
@@ -316,6 +325,7 @@ export interface Database {
           metadata?: Json;
         };
         Update: Partial<Database["public"]["Tables"]["compliance_flags"]["Insert"]>;
+        Relationships: [];
       };
       retirement_opportunities: {
         Row: {
@@ -349,6 +359,7 @@ export interface Database {
           metadata?: Json;
         };
         Update: Partial<Database["public"]["Tables"]["retirement_opportunities"]["Insert"]>;
+        Relationships: [];
       };
       tasks: {
         Row: {
@@ -382,6 +393,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["tasks"]["Insert"]>;
+        Relationships: [];
       };
       audit_logs: {
         Row: {
@@ -421,6 +433,7 @@ export interface Database {
           metadata?: Json;
         };
         Update: Partial<Database["public"]["Tables"]["audit_logs"]["Insert"]>;
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
@@ -435,7 +448,7 @@ export interface Database {
       };
       prevent_update_delete: {
         Args: Record<string, never>;
-        Returns: unknown;
+        Returns: never;
       };
     };
     Enums: {
@@ -461,3 +474,4 @@ export type Updates<T extends keyof Database["public"]["Tables"]> =
   Database["public"]["Tables"][T]["Update"];
 export type Enums<T extends keyof Database["public"]["Enums"]> =
   Database["public"]["Enums"][T];
+
