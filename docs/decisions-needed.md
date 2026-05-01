@@ -1,92 +1,42 @@
 # Decisions Needed
 
-This file records unresolved decisions or environment blockers that require owner action. Resolved troubleshooting noise has been condensed so the file stays useful.
+This file records unresolved owner actions and decisions. Resolved troubleshooting history has been removed so the remaining items are actionable.
 
-## Current Git Status
+## Current Environment Status
 
-- Branch: `main`
-- Latest local commits:
-  - `c542393 feat: substrate, medicare vertical pack, AI review, docs`
-  - `72f21aa feat: substrate, medicare vertical pack, AI review slice, docs`
-- Owner reported `git push origin main` returns `Everything up-to-date`, so the main MVP commits appear to be on `origin/main`.
-- Current local-only change: this troubleshooting cleanup file.
+- Branch in use: `main`.
+- Git push from this Codex session is working.
+- npm package installation is working against `https://registry.npmjs.org/`.
+- `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` have passed in this environment after the SDK/auth foundation changes.
 
-## Resolved During Hardening
+## Owner Actions Required
 
-### `npm run lint` was interactive
+### Configure a live Supabase project
 
-- Original issue: `next lint` opened an interactive ESLint setup prompt.
-- Resolution: Replaced `npm run lint` with `node scripts/compliance-lint.mjs`.
-- Current status: `npm run lint` passes.
+- Needed for: exercising migrations, RLS policies, Supabase Auth, append-only triggers, and real audited writes.
+- Current state: schema and seed SQL exist locally, but no live Supabase project URL/keys are configured in this environment.
+- Required env vars:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY`
 
-### Typecheck depended on generated `.next/types`
+### Link seeded users to Supabase Auth users
 
-- Original issue: running `tsc --noEmit` in some contexts failed before `.next/types` existed.
-- Resolution: Added `tsconfig.typecheck.json` and changed `npm run typecheck` to use it.
-- Current status: `npm run typecheck` passes.
+- Needed for: real sign-in resolving to `public.users`, `public.user_roles`, and tenant-scoped RLS.
+- Current state: `supabase/seed.sql` creates app users, but `auth_user_id` is null because Auth users must be created in a real Supabase project.
+- Required action after creating Auth users: update each seeded `public.users.auth_user_id` with the matching `auth.users.id`.
+- Impact if skipped: Supabase Auth can authenticate a browser session, but server helpers will return no app user/organization because the Auth identity is not mapped to the tenant user table.
 
-### Node's built-in test runner hit sandbox spawn restrictions
+### Configure Anthropic for live AI review
 
-- Original issue: `node --test` failed with `spawn EPERM`.
-- Resolution: Replaced it with `node scripts/run-contract-tests.mjs`, which runs in-process.
-- Current status: `npm test` passes.
+- Needed for: real model-backed compliance review.
+- Current state: the official Anthropic SDK is wired, but no API key is configured here.
+- Required env var:
+  - `ANTHROPIC_API_KEY`
 
-### GitHub CLI was installed but not on PATH
+## Product Decisions Made
 
-- Original issue: plain `gh` was not recognized.
-- Diagnosis: `gh.exe` exists at `C:\Program Files\GitHub CLI\gh.exe`.
-- Resolution: Use the full path or add `C:\Program Files\GitHub CLI` to PATH.
+### Preserve the current demo UI shell while replacing infrastructure
 
-## Remaining Environment Blockers
-
-### Package installation is blocked by npm cache-only mode
-
-- Command attempted: `npm install @supabase/supabase-js @supabase/ssr zod @t3-oss/env-nextjs @anthropic-ai/sdk`
-- Result: npm reported `ENOTCACHED` and `cache mode is 'only-if-cached' but no cached response is available`.
-- Impact: Official Supabase, Zod, t3-env, Anthropic, Vitest, and Playwright packages could not be installed from this environment.
-- Current workaround: Dependency-free Supabase REST scaffolding, internal validation helpers, and no-dependency contract tests are in place.
-- Recheck during focused SDK replacement session:
-  - `npm config get registry`: `https://registry.npmjs.org/`
-  - `npm config get offline`: `true`
-  - `npm config get prefer-offline`: `false`
-  - `npm config get cache`: `C:\Users\c_bas\AppData\Local\npm-cache`
-  - `npm config get cache-min`: `0`
-  - `npm config get cache-max`: `Infinity`
-  - `npm config get fetch-retries`: `2`
-  - `npm config get proxy`: `null`
-  - `npm config get https-proxy`: `null`
-  - Baseline `npm install` succeeded because existing packages were already cached.
-  - Installing new SDKs still failed with `ENOTCACHED`, so Phase B stopped per owner directive.
-
-### Local Next dev server is blocked by spawn permissions
-
-- Command attempted: `npm run dev -- --hostname 127.0.0.1 --port 3000`
-- Result: Next.js failed with `Error: spawn EPERM`.
-- Impact: Browser smoke testing from this sandbox is blocked.
-- Current workaround: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` all pass.
-
-### Codex shell could not push to GitHub
-
-- Command attempted: `git push origin main`
-- Result in Codex shell: failed to connect to `github.com` via `127.0.0.1`.
-- Owner result: `Everything up-to-date`.
-- Current interpretation: The main work appears pushed from the owner shell, but this Codex shell still has network/proxy limitations.
-
-### `.git` ACL may block Git writes from this sandbox
-
-- Observed issue: earlier `git add` attempts failed with `.git/index.lock: Permission denied`.
-- Diagnosis: `.git` has explicit deny ACL entries for another SID. Attempts to remove them from this sandbox were denied.
-- Current interpretation: Owner-side Git operations may work even when Codex-side Git writes fail.
-- Latest retry: after verifying branch `main`, `git add -A` for this troubleshooting cleanup still failed with `.git/index.lock: Permission denied`; commit and push were not attempted.
-
-## Reversible Product Decisions Made
-
-### Preserve the current demo UI as the MVP shell
-
-- Decision: Keep the existing operations screens and refactor their data boundaries instead of rewriting the UI.
-- Reason: The screens already tell the compliance-first story well and preserve Medicare / retirement-income separation.
-
-### Treat existing fake data as seed material
-
-- Decision: Convert realistic fake data into Supabase seed content over time instead of discarding it.
-- Reason: It is useful demo material and aligns with the Northstar Senior Benefits demo story.
+- Decision: Keep the existing screens and reducer-backed demo state until each slice is replaced with real Supabase-backed behavior.
+- Reason: The UI already preserves the Medicare / retirement-income separation and provides a usable demo shell while infrastructure is made real incrementally.

@@ -1,13 +1,26 @@
 "use client";
 
-import { createContext, useContext, useMemo, useReducer } from "react";
+import { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 import { initialDemoData } from "@/lib/demo-data";
 import { createConsentRecord, createRevocationRecord } from "@/lib/core/consent/consent-ledger";
 import { getConversationById } from "@/lib/demo-selectors";
-import { DemoDataState, FollowUpOpportunity, QaOutcome, TaskStatus } from "@/lib/types";
+import { DemoDataState, FollowUpOpportunity, LicenseType, QaOutcome, TaskStatus, UserRole } from "@/lib/types";
+
+type AuthenticatedRole = "admin" | "manager" | "agent" | "compliance_reviewer" | "service_staff";
+
+export interface AuthenticatedDemoUser {
+  id: string;
+  organizationId: string;
+  fullName: string;
+  email: string;
+  licenseType: LicenseType;
+  team: string | null;
+  roles: AuthenticatedRole[];
+}
 
 type DemoAction =
   | { type: "setCurrentUser"; userId: string }
+  | { type: "setAuthenticatedUser"; user: AuthenticatedDemoUser }
   | { type: "updateTaskStatus"; taskId: string; status: TaskStatus }
   | { type: "assignTask"; taskId: string; userId: string }
   | { type: "updateConversationStatus"; conversationId: string; status: DemoDataState["conversations"][number]["status"] }
@@ -36,6 +49,52 @@ interface DemoAppContextValue {
 
 const DemoAppContext = createContext<DemoAppContextValue | undefined>(undefined);
 
+function mapAuthenticatedRole(roles: AuthenticatedRole[]): UserRole {
+  if (roles.includes("admin") || roles.includes("manager")) {
+    return "manager";
+  }
+
+  if (roles.includes("compliance_reviewer")) {
+    return "compliance";
+  }
+
+  if (roles.includes("service_staff")) {
+    return "service";
+  }
+
+  return "agent";
+}
+
+function stateWithAuthenticatedUser(state: DemoDataState, user: AuthenticatedDemoUser) {
+  const existingUser = state.users.find((item) => item.id === user.id || item.email === user.email);
+  const demoUser = {
+    id: existingUser?.id ?? user.id,
+    agencyId: user.organizationId,
+    fullName: user.fullName,
+    role: mapAuthenticatedRole(user.roles),
+    licenseType: user.licenseType,
+    email: user.email,
+    team: user.team ?? "Authenticated user"
+  };
+  const users = existingUser
+    ? state.users.map((item) => (item.id === existingUser.id ? { ...item, ...demoUser } : item))
+    : [demoUser, ...state.users];
+
+  return {
+    ...state,
+    users,
+    currentUserId: demoUser.id
+  };
+}
+
+function createInitialState(authenticatedUser?: AuthenticatedDemoUser | null) {
+  if (!authenticatedUser) {
+    return initialDemoData;
+  }
+
+  return stateWithAuthenticatedUser(initialDemoData, authenticatedUser);
+}
+
 function createAudit(state: DemoDataState, entityType: DemoDataState["auditEvents"][number]["entityType"], entityId: string, action: string, detail: string) {
   return {
     id: `audit-${state.auditEvents.length + 1}`,
@@ -52,6 +111,8 @@ function reducer(state: DemoDataState, action: DemoAction): DemoDataState {
   switch (action.type) {
     case "setCurrentUser":
       return { ...state, currentUserId: action.userId };
+    case "setAuthenticatedUser":
+      return stateWithAuthenticatedUser(state, action.user);
     case "updateTaskStatus": {
       const tasks = state.tasks.map((task) =>
         task.id === action.taskId ? { ...task, status: action.status } : task
@@ -294,8 +355,24 @@ function reducer(state: DemoDataState, action: DemoAction): DemoDataState {
   }
 }
 
-export function DemoAppProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialDemoData);
+export function DemoAppProvider({
+  children,
+  authenticatedUser
+}: {
+  children: React.ReactNode;
+  authenticatedUser?: AuthenticatedDemoUser | null;
+}) {
+  const [state, dispatch] = useReducer(
+    reducer,
+    authenticatedUser,
+    createInitialState
+  );
+
+  useEffect(() => {
+    if (authenticatedUser) {
+      dispatch({ type: "setAuthenticatedUser", user: authenticatedUser });
+    }
+  }, [authenticatedUser]);
 
   const value = useMemo<DemoAppContextValue>(
     () => ({

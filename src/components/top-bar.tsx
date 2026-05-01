@@ -47,6 +47,12 @@ export function TopBar({
               <p className="text-xs uppercase tracking-[0.18em] text-stone-500">{userRole}</p>
             </div>
           </div>
+
+          <form action="/sign-out" method="post">
+            <button className="h-11 rounded-2xl border border-stone-200 bg-white px-4 text-sm font-medium text-stone-700 transition hover:border-stone-300 hover:bg-stone-50">
+              Sign out
+            </button>
+          </form>
         </div>
       </div>
     </header>
