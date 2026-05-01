@@ -1,15 +1,18 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/core/supabase/browser";
 
 export function SignInForm({
   initialStatus,
-  nextPath
+  nextPath,
+  showLocalDemoLink
 }: {
   initialStatus?: string;
   nextPath: string;
+  showLocalDemoLink: boolean;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState("dana@northstar.example");
@@ -73,10 +76,18 @@ export function SignInForm({
         </div>
       ) : null}
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-wrap gap-3">
         <button className="inline-flex min-h-11 items-center rounded-full bg-teal-700 px-5 text-sm font-medium text-white transition hover:bg-teal-600">
           Sign in
         </button>
+        {showLocalDemoLink ? (
+          <Link
+            href="/dashboard"
+            className="inline-flex min-h-11 items-center rounded-full bg-stone-100 px-5 text-sm font-medium text-stone-900 transition hover:bg-stone-200"
+          >
+            Open local demo
+          </Link>
+        ) : null}
       </div>
     </form>
   );

@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireSupabasePublicEnv } from "@/lib/core/env/client";
 
 const PUBLIC_ROUTES = new Set(["/", "/sign-in"]);
+const localDemoBypassEnabled =
+  process.env.DEMO_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production";
 
 function isPublicPath(pathname: string) {
   return (
@@ -18,6 +20,10 @@ export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   if (pathname.startsWith("/api/")) {
+    return response;
+  }
+
+  if (localDemoBypassEnabled) {
     return response;
   }
 

@@ -18,6 +18,7 @@ Date: 2026-05-01
 - Auth middleware refreshes Supabase sessions and redirects protected routes to `/sign-in` when Supabase is configured.
 - Server-side auth helpers can resolve the current Supabase Auth user to `public.users`, `public.user_roles`, and `public.organizations`.
 - The sign-in form uses Supabase Auth and redirects to `/dashboard`; `/sign-out` clears the Supabase session.
+- Local demo inspection without Supabase Auth is available only when `DEMO_BYPASS_AUTH=true` and `NODE_ENV` is not `production`.
 - `POST /api/conversations/[id]/review` reads conversation transcript and consent state from Supabase, runs the AI review pipeline server-side, and persists Anthropic-backed flags through a Postgres RPC.
 - `supabase/migrations/202604300001_review_rpc.sql` adds the transactional `insert_review_results` function for compliance flags plus audit logging.
 - `/conversations/[id]` now renders a Supabase-backed review surface for UUID conversation IDs while preserving the existing local demo component for legacy `conv-*` demo IDs.

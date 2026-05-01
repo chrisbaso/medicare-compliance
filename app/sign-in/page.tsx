@@ -23,10 +23,16 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     firstParam(params?.auth) === "not_configured"
       ? "Supabase environment variables are not configured for this runtime."
       : undefined;
+  const showLocalDemoLink =
+    process.env.DEMO_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f2e8] px-5 py-10 text-ink-950">
-      <SignInForm initialStatus={initialStatus} nextPath={nextPath} />
+      <SignInForm
+        initialStatus={initialStatus}
+        nextPath={nextPath}
+        showLocalDemoLink={showLocalDemoLink}
+      />
     </main>
   );
 }
