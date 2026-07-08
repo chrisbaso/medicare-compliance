@@ -480,6 +480,14 @@ export interface Database {
         Args: Record<string, never>;
         Returns: never;
       };
+      record_review_call: {
+        Args: {
+          p_organization_id: string;
+          p_conversation_id: string;
+          p_limit: number;
+        };
+        Returns: { allowed: boolean; calls_today: number }[];
+      };
     };
     Enums: {
       app_role: "admin" | "manager" | "agent" | "compliance_reviewer" | "service_staff";

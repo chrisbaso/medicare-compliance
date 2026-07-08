@@ -52,6 +52,31 @@ function startOfUtcDayIso(): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 }
 
+/**
+ * Atomic per-org rate check backed by the record_review_call Postgres function
+ * (serializes concurrent calls via an advisory lock). Preferred over the
+ * store-based checkAndRecordReviewCall for the live route.
+ */
+export async function recordReviewCallAtomic(
+  supabase: AppSupabaseClient,
+  organizationId: string,
+  conversationId: string,
+  limit: number = dailyReviewLimit()
+): Promise<RateLimitDecision> {
+  const { data, error } = await supabase.rpc("record_review_call", {
+    p_organization_id: organizationId,
+    p_conversation_id: conversationId,
+    p_limit: limit
+  });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    allowed: Boolean(row?.allowed),
+    callsToday: row?.calls_today ?? 0,
+    limit
+  };
+}
+
 export function supabaseReviewCallLogStore(supabase: AppSupabaseClient): ReviewCallLogStore {
   return {
     async countToday(organizationId: string) {

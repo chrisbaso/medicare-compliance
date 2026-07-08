@@ -6,10 +6,7 @@ import { requireAnthropicEnv } from "@/lib/core/env/server";
 import { getCurrentUser } from "@/lib/core/auth/session";
 import { createAnthropicProvider } from "@/lib/core/llm/anthropic";
 import { createServerClient } from "@/lib/core/supabase/server";
-import {
-  checkAndRecordReviewCall,
-  supabaseReviewCallLogStore
-} from "@/lib/core/ai-review/rate-limit";
+import { recordReviewCallAtomic } from "@/lib/core/ai-review/rate-limit";
 import { Json } from "../../../../../supabase/types";
 
 interface ReviewRouteContext {
@@ -167,8 +164,8 @@ export async function POST(_request: Request, context: ReviewRouteContext) {
 
   if (hasAnthropicKey()) {
     // Meter only the paid provider path (the deterministic fallback is free).
-    const rate = await checkAndRecordReviewCall(
-      supabaseReviewCallLogStore(supabase),
+    const rate = await recordReviewCallAtomic(
+      supabase,
       conversation.organization_id,
       conversation.id
     );

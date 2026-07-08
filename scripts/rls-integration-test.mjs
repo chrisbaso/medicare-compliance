@@ -127,6 +127,24 @@ await check("compliance_reviewer CAN read any org conversation", async () => {
   assert.ok(data, "reviewer should see org-wide conversations");
 });
 
+await check("record_review_call enforces the per-org limit atomically", async () => {
+  const ORG = "11111111-1111-4111-8111-111111111111";
+  const first = await reviewer.rpc("record_review_call", {
+    p_organization_id: ORG,
+    p_conversation_id: CONV_OWNED_BY_MANAGER,
+    p_limit: 1
+  });
+  assert.equal(first.error, null, first.error?.message);
+  assert.equal(first.data?.[0]?.allowed, true);
+
+  const second = await reviewer.rpc("record_review_call", {
+    p_organization_id: ORG,
+    p_conversation_id: CONV_OWNED_BY_MANAGER,
+    p_limit: 1
+  });
+  assert.equal(second.data?.[0]?.allowed, false, "second call over limit must be rejected");
+});
+
 if (failures > 0) {
   console.error(`\n${failures} RLS integration check(s) failed.`);
   process.exit(1);
