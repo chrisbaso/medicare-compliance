@@ -43,3 +43,6 @@ jobs:
         env:
           # Non-production, local-only values for the CI run.
           APP_ENV: test
+
+      - name: RLS behavioral integration test (needs live DB)
+        run: node scripts/rls-integration-test.mjs

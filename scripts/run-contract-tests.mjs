@@ -21,6 +21,26 @@ test("Supabase migration enforces organization RLS and append-only ledgers", asy
   assert.match(migration, /create table public\.retirement_opportunities/g);
 });
 
+test("RLS hardening migration gates destructive/privileged operations by role", async () => {
+  const migration = await read("supabase/migrations/202607080001_tighten_rls.sql");
+
+  // Broad FOR ALL policies were removed.
+  assert.match(migration, /drop policy if exists "org members clients"/);
+  assert.match(migration, /drop policy if exists "compliance flags org access"/);
+  assert.match(migration, /drop policy if exists "org members tasks"/);
+
+  // clients: delete is admin-only; update is staff-gated.
+  assert.match(migration, /"clients admin delete"[\s\S]*?'admin' = any/);
+  assert.match(migration, /"clients staff update"/);
+
+  // compliance_flags: update is reviewer/manager/admin; NO delete policy exists.
+  assert.match(migration, /"compliance flags reviewer update"[\s\S]*?'compliance_reviewer' = any/);
+  assert.doesNotMatch(migration, /on public\.compliance_flags\s+for delete/i);
+
+  // tasks: delete restricted to manager/admin.
+  assert.match(migration, /"tasks manager delete"[\s\S]*?'manager' = any/);
+});
+
 test("AI review output contract includes reviewer-actionable fields", async () => {
   const types = await read("src/lib/core/ai-review/types.ts");
 
