@@ -41,3 +41,39 @@ export function transitionWorkflow<State extends string>(
 
   return transition;
 }
+
+export function isTerminalState<State extends string>(
+  machine: WorkflowStateMachine<State>,
+  state: State
+) {
+  return machine.terminalStates.includes(state);
+}
+
+export interface OpenBlockingFlag {
+  rule_id: string;
+}
+
+/**
+ * Guarded transition. Behaves like transitionWorkflow, but additionally refuses
+ * to enter a TERMINAL state while open, workflow-blocking compliance flags
+ * remain. A blocking flag must actually block — an unresolved critical finding
+ * cannot be closed out silently.
+ */
+export function assertTransitionAllowed<State extends string>(
+  machine: WorkflowStateMachine<State>,
+  from: State,
+  to: State,
+  options: { openBlockingFlags?: OpenBlockingFlag[] } = {}
+) {
+  const transition = transitionWorkflow(machine, from, to);
+  const blocking = options.openBlockingFlags ?? [];
+
+  if (isTerminalState(machine, to) && blocking.length > 0) {
+    const ruleIds = Array.from(new Set(blocking.map((f) => f.rule_id))).join(", ");
+    throw new Error(
+      `Cannot transition to terminal state '${to}': ${blocking.length} open blocking compliance flag(s) must be resolved first (${ruleIds}).`
+    );
+  }
+
+  return transition;
+}

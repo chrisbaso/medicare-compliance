@@ -84,6 +84,29 @@ export async function listComplianceFlags(supabase: AppSupabaseClient) {
   return (data ?? []).map(complianceFlagRowToComplianceFlag);
 }
 
+/**
+ * Open compliance flags on a conversation whose rule is workflow-blocking.
+ * Used to guard terminal workflow transitions (see assertTransitionAllowed).
+ * RLS scopes this to the caller's organization.
+ */
+export async function getOpenBlockingFlagsForConversation(
+  supabase: AppSupabaseClient,
+  conversationId: string,
+  blockingRuleIds: string[]
+) {
+  if (blockingRuleIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("compliance_flags")
+    .select("id, rule_id, status")
+    .eq("conversation_id", conversationId)
+    .eq("status", "open")
+    .in("rule_id", blockingRuleIds);
+
+  throwIfSupabaseError(error);
+  return (data ?? []).map((row) => ({ rule_id: row.rule_id }));
+}
+
 export async function insertAuditLog(
   supabase: AppSupabaseClient,
   event: Inserts<"audit_logs">

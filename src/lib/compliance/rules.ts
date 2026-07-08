@@ -334,6 +334,11 @@ export const phraseDrivenComplianceRules = Object.values(complianceRulesCatalog)
   (rule) => Array.isArray(rule.phrases) && rule.phrases.length > 0
 );
 
+// Rule keys whose open flags must block a workflow from reaching a terminal state.
+export const workflowBlockingRuleKeys: ComplianceRuleKey[] = Object.values(complianceRulesCatalog)
+  .filter((rule) => rule.blocksWorkflow)
+  .map((rule) => rule.ruleKey);
+
 export function getComplianceRule(ruleKey: ComplianceRuleKey) {
   return complianceRulesCatalog[ruleKey];
 }
