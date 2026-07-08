@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "node scripts/compliance-lint.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
-    "test": "node scripts/run-contract-tests.mjs",
+    "test:contract": "node scripts/run-contract-tests.mjs",
+    "test:unit": "vitest run",
+    "test": "npm run test:unit && npm run test:contract",
+    "coverage": "vitest run --coverage",
     "setup:dev": "node scripts/setup-dev.mjs",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
@@ -28,6 +31,7 @@
     "@types/node": "^22.15.18",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
+    "@vitest/coverage-v8": "^4.1.10",
     "@vitest/ui": "^4.1.5",
     "autoprefixer": "^10.5.0",
     "eslint": "^9.39.4",
@@ -35,6 +39,6 @@
     "postcss": "^8.5.10",
     "tailwindcss": "^3.4.17",
     "typescript": "5.8.3",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.10"
   }
 }

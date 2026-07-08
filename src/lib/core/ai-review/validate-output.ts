@@ -9,6 +9,10 @@ const flagTypes = new Set<AiReviewFlagType>([
   "prohibited_compensation_discussion",
   "plan_recommendation_language",
   "unsupported_claim",
+  "implied_government_endorsement",
+  "urgency_high_pressure_language",
+  "unlicensed_activity_language",
+  "plan_comparison_risk",
   "human_review_needed"
 ]);
 
