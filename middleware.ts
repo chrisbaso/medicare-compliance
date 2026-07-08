@@ -3,27 +3,39 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireSupabasePublicEnv } from "@/lib/core/env/client";
 
 const PUBLIC_ROUTES = new Set(["/", "/sign-in"]);
-const localDemoBypassEnabled =
-  process.env.DEMO_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production";
+// Explicit allow-list of API routes that may be reached without a session
+// (e.g. future health checks / webhooks). Empty by default: every /api route
+// requires authentication unless deliberately listed here.
+const PUBLIC_API_ROUTES = new Set<string>([]);
+function isLocalDemoBypassEnabled() {
+  return process.env.DEMO_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production";
+}
 
 function isPublicPath(pathname: string) {
   return (
     PUBLIC_ROUTES.has(pathname) ||
+    PUBLIC_API_ROUTES.has(pathname) ||
     pathname.startsWith("/_next/") ||
     pathname === "/favicon.ico" ||
     /\.[a-zA-Z0-9]+$/.test(pathname)
   );
 }
 
+// Unauthenticated API requests get a 401 JSON response instead of a redirect.
+function unauthorizedApiResponse() {
+  return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const isApi = pathname.startsWith("/api/");
   let response = NextResponse.next({ request });
 
-  if (pathname.startsWith("/api/")) {
-    return response;
-  }
+  // NOTE: API routes are NOT exempt from authentication. They flow through the
+  // same Supabase session check below. Individual handlers still perform
+  // authorization (role/ownership) on top of this authentication gate.
 
-  if (localDemoBypassEnabled) {
+  if (isLocalDemoBypassEnabled()) {
     return response;
   }
 
@@ -32,6 +44,9 @@ export async function middleware(request: NextRequest) {
     supabaseConfig = requireSupabasePublicEnv();
   } catch (error) {
     if (!isPublicPath(pathname)) {
+      if (isApi) {
+        return unauthorizedApiResponse();
+      }
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/sign-in";
       redirectUrl.searchParams.set("auth", "not_configured");
@@ -65,6 +80,9 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user && !isPublicPath(pathname)) {
+    if (isApi) {
+      return unauthorizedApiResponse();
+    }
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/sign-in";
     redirectUrl.searchParams.set("next", pathname);
