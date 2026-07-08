@@ -58,6 +58,16 @@ Negligible. Sanitization and rate-limit checks are O(transcript) / one indexed c
 
 Open a PR for `review/full-audit` so CI runs the behavioral RLS + build gate, confirm green, then start the **ingest pipeline** (Prompt A) — but only after the BAA is in hand, since ingest is the first real-PHI surface.
 
-## 9. Updated project health score
+## 9. Follow-on hardening (same session, after the 7-step spine)
 
-**5.2 → 6.6 / 10.** Security 3→6 (auth closed, PII redacted, rate-limited; RLS behavioral proof pending CI). Testing 1→6 (real suite + CI gate). Correctness/compliance integrity up (engine parity, blocking enforced). Ingest/automation and commercial readiness unchanged — that is the next frontier.
+| Item | Change | Proof |
+|---|---|---|
+| Prompt injection | Untrusted-delimited transcript + closing contract; post-gen check rejects recommendation language in flag text (audited 502) | 5 unit tests |
+| Agent-scoped reads | Agents read only owned conversations; privileged roles keep org-wide; `current_user_id()` helper | contract shape + CI behavioral |
+| Atomic rate limit | `record_review_call()` RPC with per-org advisory lock closes the count-then-insert race | CI behavioral |
+
+## 10. Updated project health score
+
+**5.2 → 6.9 / 10.** Security 3→7 (auth closed, PII redacted, prompt-injection-hardened, rate-limited/atomic; RLS + agent-scoping behaviorally proven in CI). Testing 1→6 (58 executable checks + CI gate). Correctness/compliance integrity up (engine parity, blocking enforced). Ingest/automation, transcription, and commercial readiness unchanged — the next frontier, and the first is BAA-gated for real data.
+
+Total this session: **11 items, 12 commits, 58 tests (53 unit + 6 contract + CI behavioral suite), all `verify`-green.**
