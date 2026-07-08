@@ -2,8 +2,9 @@
 
 **Author:** Technical Cofounder session
 **Branch:** `review/full-audit`
-**Status:** Plan for review — no code written yet
+**Status:** Plan for review — no application code written yet
 **Prerequisite for:** any work stream that touches real beneficiary PII (ingest, transcription, portfolio)
+**Automated execution:** see `CODEX_RUNBOOK.md` — Codex self-provisions (local Supabase + mock LLM) and runs Steps 0–7 with no human gate except the BAA and production secrets. The prerequisites below are automated by `npm run setup:dev`.
 
 ---
 

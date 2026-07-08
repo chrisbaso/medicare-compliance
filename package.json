@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "node scripts/compliance-lint.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
-    "test": "node scripts/run-contract-tests.mjs"
+    "test": "node scripts/run-contract-tests.mjs",
+    "setup:dev": "node scripts/setup-dev.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
