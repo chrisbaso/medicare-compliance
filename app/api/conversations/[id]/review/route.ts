@@ -154,7 +154,8 @@ export async function POST(_request: Request, context: ReviewRouteContext) {
     conversationId: conversation.id,
     transcript,
     hasScopeOfAppointment,
-    hasSeparateRetirementConsent
+    hasSeparateRetirementConsent,
+    speakerNames: (messages ?? []).map((message) => message.speaker_name)
   };
   const snapshot = consentSnapshot({ hasScopeOfAppointment, hasSeparateRetirementConsent });
   let reviewResult: AiReviewResult;

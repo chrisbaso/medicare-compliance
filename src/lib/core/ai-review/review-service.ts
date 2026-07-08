@@ -1,6 +1,7 @@
 import { AiReviewInput, AiReviewResult } from "@/lib/core/ai-review/types";
 import { runDeterministicAiReview } from "@/lib/core/ai-review/deterministic-review";
 import { parseAiReviewJson } from "@/lib/core/ai-review/validate-output";
+import { sanitizeTranscript, restoreFlagOffsets } from "@/lib/core/ai-review/transcript-sanitizer";
 import { LlmProvider } from "@/lib/core/llm/types";
 import { buildMedicareComplianceReviewPrompt } from "@/lib/verticals/medicare/ai-prompts";
 import { medicareComplianceRules } from "@/lib/verticals/medicare/compliance-rules";
@@ -18,9 +19,16 @@ export async function runAiComplianceReview(
     return runDeterministicAiReview(input);
   }
 
+  // Redact speaker names before the transcript leaves the server.
+  const { sanitized, replacements } = sanitizeTranscript(
+    input.transcript,
+    input.speakerNames ?? []
+  );
+  const didSanitize = replacements.length > 0;
+
   const prompt = buildMedicareComplianceReviewPrompt({
     rules: medicareComplianceRules,
-    transcript: input.transcript
+    transcript: sanitized
   });
   const model = options.model ?? "claude-sonnet-4-20250514";
   const response = await options.provider.complete({
@@ -40,9 +48,16 @@ export async function runAiComplianceReview(
     ]
   });
 
-  return parseAiReviewJson(response.text, {
+  const parsed = parseAiReviewJson(response.text, {
     provider: response.provider === "anthropic" ? "anthropic" : "mock",
     model: response.model,
     promptVersion: "medicare-compliance-v1"
   });
+
+  // Map flag offsets from the sanitized transcript back onto the original.
+  return {
+    ...parsed,
+    flags: restoreFlagOffsets(parsed.flags, replacements),
+    sanitized: didSanitize
+  };
 }

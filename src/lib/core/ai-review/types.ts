@@ -29,6 +29,8 @@ export interface AiReviewResult {
   provider: "anthropic" | "deterministic" | "mock";
   model: string;
   promptVersion: string;
+  // True when transcript PII sanitization ran before the provider call.
+  sanitized?: boolean;
 }
 
 export interface AiReviewInput {
@@ -37,4 +39,6 @@ export interface AiReviewInput {
   transcript: string;
   hasScopeOfAppointment: boolean;
   hasSeparateRetirementConsent: boolean;
+  // Speaker names to redact before sending the transcript to an AI provider.
+  speakerNames?: string[];
 }
