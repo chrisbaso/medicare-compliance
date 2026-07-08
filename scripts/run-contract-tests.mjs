@@ -41,6 +41,15 @@ test("RLS hardening migration gates destructive/privileged operations by role", 
   assert.match(migration, /"tasks manager delete"[\s\S]*?'manager' = any/);
 });
 
+test("Conversation scoping migration limits agent reads to owned conversations", async () => {
+  const migration = await read("supabase/migrations/202607080003_conversation_scoping.sql");
+
+  assert.match(migration, /drop policy if exists "org members conversations"/);
+  assert.match(migration, /create or replace function public\.current_user_id/);
+  // Scoped read: privileged roles OR ownership.
+  assert.match(migration, /"conversations scoped read"[\s\S]*?owner_user_id = public\.current_user_id\(\)/);
+});
+
 test("AI review output contract includes reviewer-actionable fields", async () => {
   const types = await read("src/lib/core/ai-review/types.ts");
 

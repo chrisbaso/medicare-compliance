@@ -21,6 +21,8 @@ const AGENT_EMAIL = "alex@northstar.example"; // role: agent
 const REVIEWER_EMAIL = "priya@northstar.example"; // role: compliance_reviewer
 const SEED_CLIENT_ID = "33333333-3333-4333-8333-333333333301";
 const SEED_FLAG_ID = "66666666-6666-4666-8666-666666666601";
+const CONV_OWNED_BY_AGENT = "44444444-4444-4444-8444-444444444401"; // owner: Alex (agent)
+const CONV_OWNED_BY_MANAGER = "44444444-4444-4444-8444-444444444403"; // owner: Dana (manager)
 
 function localCreds() {
   const status = spawnSync("supabase", ["status", "-o", "env"], { encoding: "utf8" });
@@ -96,6 +98,33 @@ await check("compliance_reviewer CAN update a compliance flag status", async () 
     .eq("id", SEED_FLAG_ID)
     .maybeSingle();
   assert.equal(data?.status, "confirmed");
+});
+
+await check("agent CAN read a conversation they own", async () => {
+  const { data } = await agent
+    .from("conversations")
+    .select("id")
+    .eq("id", CONV_OWNED_BY_AGENT)
+    .maybeSingle();
+  assert.ok(data, "agent should see their own conversation");
+});
+
+await check("agent CANNOT read a conversation owned by someone else", async () => {
+  const { data } = await agent
+    .from("conversations")
+    .select("id")
+    .eq("id", CONV_OWNED_BY_MANAGER)
+    .maybeSingle();
+  assert.equal(data, null, "agent must not see another owner's conversation");
+});
+
+await check("compliance_reviewer CAN read any org conversation", async () => {
+  const { data } = await reviewer
+    .from("conversations")
+    .select("id")
+    .eq("id", CONV_OWNED_BY_MANAGER)
+    .maybeSingle();
+  assert.ok(data, "reviewer should see org-wide conversations");
 });
 
 if (failures > 0) {
