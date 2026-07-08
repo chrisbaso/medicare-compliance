@@ -51,7 +51,11 @@ function checkProductGuardrails(file, content) {
 
   if (
     file.endsWith(`${path.sep}src${path.sep}lib${path.sep}compliance${path.sep}rules.ts`) ||
-    file.includes(`${path.sep}src${path.sep}lib${path.sep}verticals${path.sep}medicare${path.sep}compliance-rules.ts`)
+    file.includes(`${path.sep}src${path.sep}lib${path.sep}verticals${path.sep}medicare${path.sep}compliance-rules.ts`) ||
+    // The output validator and deterministic engine legitimately enumerate
+    // prohibited phrases in order to DETECT/REJECT them, not to use them.
+    file.includes(`${path.sep}src${path.sep}lib${path.sep}core${path.sep}ai-review${path.sep}validate-output.ts`) ||
+    file.endsWith(".test.ts")
   ) {
     return;
   }

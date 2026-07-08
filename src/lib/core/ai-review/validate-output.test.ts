@@ -74,6 +74,21 @@ describe("parseAiReviewJson", () => {
     ).toThrow(/non-negative number/);
   });
 
+  it("rejects a flag whose reasoning carries recommendation language", () => {
+    expect(() =>
+      parseAiReviewJson(JSON.stringify({ flags: [flag({ reasoning: "You should enroll in Plan X." })] }), meta)
+    ).toThrow(/prohibited recommendation language/);
+  });
+
+  it("rejects recommendation language in suggested_remediation too", () => {
+    expect(() =>
+      parseAiReviewJson(
+        JSON.stringify({ flags: [flag({ suggested_remediation: "I recommend the annuity." })] }),
+        meta
+      )
+    ).toThrow(/prohibited recommendation language/);
+  });
+
   it("accepts the newly-supported catalog-aligned flag types", () => {
     for (const t of [
       "implied_government_endorsement",

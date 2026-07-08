@@ -16,6 +16,31 @@ const flagTypes = new Set<AiReviewFlagType>([
   "human_review_needed"
 ]);
 
+// Free-text flag fields must never carry product-recommendation language, even
+// if a prompt-injection attempt coaxed the model into producing it. A hit here
+// is treated as a model-output validation failure (audited, 502 to the client).
+const PROHIBITED_RECOMMENDATION_PHRASES = [
+  "you should enroll",
+  "you should switch",
+  "i recommend",
+  "we recommend",
+  "best plan for you",
+  "sign up for",
+  "you should buy",
+  "you should purchase"
+];
+
+function checkFlagContent(flag: AiReviewFlag): void {
+  const combined = `${flag.reasoning} ${flag.suggested_remediation}`.toLowerCase();
+  for (const phrase of PROHIBITED_RECOMMENDATION_PHRASES) {
+    if (combined.includes(phrase)) {
+      throw new Error(
+        `AI review flag content contains prohibited recommendation language: '${phrase}'.`
+      );
+    }
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -69,7 +94,7 @@ export function parseAiReviewJson(
       throw new Error("AI review flag end offset cannot be before start offset.");
     }
 
-    return {
+    const built: AiReviewFlag = {
       flag_type: flagType,
       severity,
       rule_id: readString(flag, "rule_id"),
@@ -79,6 +104,9 @@ export function parseAiReviewJson(
       reasoning: readString(flag, "reasoning"),
       suggested_remediation: readString(flag, "suggested_remediation")
     };
+
+    checkFlagContent(built);
+    return built;
   });
 
   return {

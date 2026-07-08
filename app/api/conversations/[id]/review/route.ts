@@ -25,6 +25,7 @@ function isModelOutputValidationError(error: unknown) {
     error instanceof Error &&
     (error.message.startsWith("AI review output") ||
       error.message.startsWith("Each AI review flag") ||
+      error.message.startsWith("AI review flag content") ||
       error.message.startsWith("Unsupported AI review") ||
       error.message.includes("offset cannot be before"))
   );
