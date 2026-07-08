@@ -361,6 +361,22 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["retirement_opportunities"]["Insert"]>;
         Relationships: [];
       };
+      review_call_log: {
+        Row: {
+          id: string;
+          organization_id: string;
+          conversation_id: string;
+          called_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          conversation_id: string;
+          called_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["review_call_log"]["Insert"]>;
+        Relationships: [];
+      };
       tasks: {
         Row: {
           id: string;
