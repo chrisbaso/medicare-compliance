@@ -32,6 +32,23 @@ The "Book Intelligence Layer" from the original Phase 1 product spec now exists 
 - Duplicate-client detection on ingest is the top follow-up (re-importing a book would create duplicates today).
 - BAA remains a production prerequisite before any real beneficiary file is uploaded.
 
-## 5. Updated project health score
+## 5. CI verification closed (addendum)
 
-**6.9 → 7.4 / 10.** Ingest/automation 2→6 (full pipeline exists, duplicate detection pending). Commercial readiness 4→6 (the demo now shows the acquisition story: onboard a book → see prioritized outreach). Security/testing unchanged from Session 1 (91 executable checks total).
+The behavioral proofs are no longer pending: CI run 29033646025 (`4ccd14d`) is
+GREEN on a live local Supabase stack — all 7 RLS/behavioral checks pass (agent
+cannot delete clients or update flags; reviewer can; agent sees only owned
+conversations; atomic rate limit rejects over-limit calls). Getting there
+surfaced and fixed two real environment defects:
+1. Newer Supabase CLI key semantics broke REST-based seed linking → linking now
+   goes through a direct psql connection (`31ae520`).
+2. Newer stacks do not auto-grant table privileges to `authenticated` — every
+   access failed closed → explicit grants migration making the GRANT/RLS model
+   self-documenting (`4ccd14d`). This would have been a day-one production
+   outage; CI caught it before any deploy.
+
+Also added this session: duplicate detection on ingest (in-file always errors;
+existing-book duplicates error or explicit re-import skip; 5 tests).
+
+## 6. Updated project health score
+
+**6.9 → 7.6 / 10.** Ingest/automation 2→7 (full pipeline + duplicate detection). Commercial readiness 4→6 (the demo now shows the acquisition story: onboard a book → see prioritized outreach). Security 7 → now CI-**proven**, not just written (all behavioral RLS/rate-limit checks green on a live stack). 96 executable checks total (90 unit + 6 contract) plus the 7-check CI behavioral suite.
