@@ -5,7 +5,8 @@ import {
   clientRowToClient,
   complianceFlagRowToComplianceFlag,
   consentRowToConsentRecord,
-  conversationRowToConversation
+  conversationRowToConversation,
+  retirementOpportunityRowToFollowupWorkflow
 } from "@/lib/core/repositories/mappers";
 
 export type AppSupabaseClient = SupabaseClient<Database>;
@@ -105,6 +106,22 @@ export async function getOpenBlockingFlagsForConversation(
 
   throwIfSupabaseError(error);
   return (data ?? []).map((row) => ({ rule_id: row.rule_id }));
+}
+
+/**
+ * Retirement opportunities (the separate licensed workflow). RLS restricts
+ * reads to admin/manager/compliance_reviewer — for other roles this returns
+ * an empty list rather than erroring, which callers should treat as "no
+ * visibility", not "no pipeline".
+ */
+export async function listRetirementOpportunities(supabase: AppSupabaseClient) {
+  const { data, error } = await supabase
+    .from("retirement_opportunities")
+    .select("*")
+    .order("requested_at", { ascending: false });
+
+  throwIfSupabaseError(error);
+  return (data ?? []).map(retirementOpportunityRowToFollowupWorkflow);
 }
 
 export async function listAuditEvents(supabase: AppSupabaseClient) {
