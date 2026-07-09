@@ -1,150 +1,50 @@
-"use client";
+import { BookIntelligenceView } from "@/components/book/book-intelligence-view";
+import { DemoBookIntelligence } from "@/components/book/demo-book-intelligence";
+import { scoreBookFromState } from "@/lib/book-intelligence";
+import {
+  listClients,
+  listConsentLedger,
+  listConversations
+} from "@/lib/core/repositories/operations-repository";
+import { createServerClient } from "@/lib/core/supabase/server";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
-import { PageHeader } from "@/components/page-header";
-import { useDemoApp } from "@/components/providers/demo-app-provider";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
-import { FilterBar, FilterField, Select } from "@/components/ui/filter-bar";
-import { retentionAtRisk, scoreBookFromState, ScoredBookEntry } from "@/lib/book-intelligence";
-import { OpportunityRuleKey } from "@/lib/verticals/medicare/opportunity-rules";
+/**
+ * Book intelligence — server-rendered from the LIVE book when Supabase is
+ * configured (so an ingested book shows up immediately, RLS-scoped to the
+ * caller's org), falling back to the demo dataset otherwise.
+ */
 
-const RULE_LABELS: Record<OpportunityRuleKey, string> = {
-  turning_65_window: "Turning 65",
-  enrollment_seasonality: "Enrollment season",
-  premium_pressure: "Premium pressure",
-  life_event: "Life event",
-  consented_retirement_follow_up: "Consented follow-up",
-  service_need: "Service need",
-  missing_document: "Missing document",
-  stale_contact: "Stale contact"
-};
+export const dynamic = "force-dynamic"; // live book data must not be cached at build time
 
-function scoreTone(score: number): "danger" | "warning" | "info" | "neutral" {
-  if (score >= 80) return "danger";
-  if (score >= 60) return "warning";
-  if (score >= 40) return "info";
-  return "neutral";
+export default async function BookIntelligencePage() {
+  let liveData: Awaited<ReturnType<typeof loadLiveBook>> | null = null;
+  try {
+    liveData = await loadLiveBook();
+  } catch (error) {
+    // Demo fallback ONLY when Supabase is not configured. A live database
+    // error must surface — silently showing demo data would be misleading.
+    const notConfigured =
+      error instanceof Error && error.message.includes("not configured");
+    if (!notConfigured) {
+      throw error;
+    }
+    liveData = null;
+  }
+
+  if (!liveData) {
+    return <DemoBookIntelligence />;
+  }
+
+  const entries = scoreBookFromState(liveData, new Date());
+  return <BookIntelligenceView entries={entries} source="live" />;
 }
 
-export default function BookIntelligencePage() {
-  const { state } = useDemoApp();
-  const [ruleFilter, setRuleFilter] = useState<"all" | OpportunityRuleKey>("all");
-
-  const scored = useMemo(
-    () =>
-      scoreBookFromState(
-        { clients: state.clients, conversations: state.conversations, consents: state.consentRecords },
-        new Date()
-      ),
-    [state.clients, state.conversations, state.consentRecords]
-  );
-
-  const withSignals = useMemo(() => scored.filter((entry) => entry.signals.length > 0), [scored]);
-  const atRisk = useMemo(() => retentionAtRisk(withSignals), [withSignals]);
-  const filtered = useMemo(
-    () =>
-      ruleFilter === "all"
-        ? withSignals
-        : withSignals.filter((entry) => entry.signals.some((s) => s.ruleKey === ruleFilter)),
-    [withSignals, ruleFilter]
-  );
-
-  return (
-    <>
-      <PageHeader
-        title="Book intelligence"
-        description="Outreach and retention priorities scored from the book of business. Signals are informational and route to human contact — the platform never recommends plans or products."
-      />
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Clients with signals</p>
-          <p className="mt-2 font-serif text-3xl text-ink-950">{withSignals.length}</p>
-          <p className="mt-1 text-sm text-stone-600">of {scored.length} scored clients</p>
-        </Card>
-        <Card>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Retention at risk</p>
-          <p className="mt-2 font-serif text-3xl text-ink-950">{atRisk.length}</p>
-          <p className="mt-1 text-sm text-stone-600">stale or never-contacted clients</p>
-        </Card>
-        <Card>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Top priority</p>
-          <p className="mt-2 font-serif text-3xl text-ink-950">
-            {withSignals[0] ? `${withSignals[0].client.firstName} ${withSignals[0].client.lastName}` : "—"}
-          </p>
-          <p className="mt-1 text-sm text-stone-600">
-            {withSignals[0] ? `score ${withSignals[0].totalScore} · ${RULE_LABELS[withSignals[0].signals[0].ruleKey]}` : "no open signals"}
-          </p>
-        </Card>
-      </div>
-
-      <Card className="mt-6">
-        <CardHeader
-          eyebrow="Prioritized outreach queue"
-          title="Who to contact, and why"
-          description="Ranked by combined signal strength. Every next step is a service or education touchpoint — SOA and consent rules still apply before any plan discussion."
-        />
-
-        <FilterBar>
-          <FilterField label="Signal type">
-            <Select
-              value={ruleFilter}
-              onChange={(event) => setRuleFilter(event.target.value as "all" | OpportunityRuleKey)}
-            >
-              <option value="all">All signals</option>
-              {Object.entries(RULE_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </FilterField>
-        </FilterBar>
-
-        {filtered.length === 0 ? (
-          <EmptyState
-            title="No matching signals"
-            description="No clients currently match this signal filter. That usually means the book is fully current."
-          />
-        ) : (
-          <ul className="mt-4 space-y-4">
-            {filtered.map((entry) => (
-              <BookEntryRow key={entry.clientId} entry={entry} />
-            ))}
-          </ul>
-        )}
-      </Card>
-    </>
-  );
-}
-
-function BookEntryRow({ entry }: { entry: ScoredBookEntry }) {
-  return (
-    <li className="rounded-2xl border border-stone-200 bg-[#fcfaf5] p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Link
-            href={`/clients/${entry.client.id}`}
-            className="font-medium text-ink-950 underline-offset-4 hover:underline"
-          >
-            {entry.client.firstName} {entry.client.lastName}
-          </Link>
-          <span className="ml-3 text-sm text-stone-500">{entry.client.state}</span>
-        </div>
-        <Badge value={`Score ${entry.totalScore}`} tone={scoreTone(entry.totalScore)} />
-      </div>
-      <ul className="mt-3 space-y-2">
-        {entry.signals.map((signal) => (
-          <li key={signal.ruleKey} className="flex flex-col gap-1 text-sm lg:flex-row lg:items-baseline lg:gap-3">
-            <Badge value={RULE_LABELS[signal.ruleKey]} tone={scoreTone(signal.score)} className="shrink-0" />
-            <span className="text-stone-700">{signal.reason}</span>
-            <span className="text-stone-500">Next: {signal.nextAction}</span>
-          </li>
-        ))}
-      </ul>
-    </li>
-  );
+async function loadLiveBook() {
+  const supabase = await createServerClient();
+  const [clients, conversations, consents] = await Promise.all([
+    listClients(supabase),
+    listConversations(supabase),
+    listConsentLedger(supabase)
+  ]);
+  return { clients, conversations, consents };
 }
