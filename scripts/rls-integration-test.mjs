@@ -33,6 +33,8 @@ function localCreds() {
       const v = rest.join("=").replace(/^"|"$/g, "").trim();
       if (k?.trim() === "API_URL") creds.url = v;
       if (k?.trim() === "ANON_KEY") creds.anon = v;
+      // Newer CLI versions name the anon-equivalent key PUBLISHABLE_KEY.
+      if (k?.trim() === "PUBLISHABLE_KEY" && !creds.anon) creds.anon = v;
     }
   }
   return creds;

@@ -34,6 +34,9 @@ function localCredsFromCli() {
     const v = rest.join("=").replace(/^"|"$/g, "").trim();
     if (k.trim() === "API_URL") creds.url = v;
     if (k.trim() === "SERVICE_ROLE_KEY") creds.serviceKey = v;
+    // Newer CLI versions issue new-format keys under different names.
+    if (k.trim() === "SECRET_KEY" && !creds.serviceKey) creds.serviceKey = v;
+    if (k.trim() === "DB_URL") creds.dbUrl = v;
   }
   return creds;
 }
@@ -41,6 +44,7 @@ function localCredsFromCli() {
 const local = localCredsFromCli();
 const url = process.env.SUPABASE_URL || local.url;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || local.serviceKey;
+const dbUrl = process.env.SUPABASE_DB_URL || local.dbUrl;
 
 if (!url || !serviceKey) {
   process.stderr.write(
@@ -69,14 +73,39 @@ async function ensureAuthUser(email) {
   return match.id;
 }
 
+/**
+ * Write auth_user_id into public.users. Prefer a direct psql connection to the
+ * LOCAL database — new-format CLI API keys have gateway role-mapping quirks
+ * (observed in CI: 'permission denied for table users' via PostgREST), while
+ * a direct superuser connection to the throwaway local stack is unambiguous.
+ * Falls back to the REST update when no DB_URL is available.
+ */
+function linkViaPsql(userId, authId) {
+  if (!dbUrl) return false;
+  const sql = `update public.users set auth_user_id = '${authId}' where id = '${userId}';`;
+  const result = spawnSync("psql", [dbUrl, "-v", "ON_ERROR_STOP=1", "-q", "-c", sql], {
+    encoding: "utf8"
+  });
+  if (result.error || result.status !== 0) {
+    process.stdout.write(
+      `  (psql link failed${result.stderr ? `: ${result.stderr.trim()}` : ""}; falling back to REST)\n`
+    );
+    return false;
+  }
+  return true;
+}
+
+async function linkViaRest(userId, authId, email) {
+  const { error } = await admin.from("users").update({ auth_user_id: authId }).eq("id", userId);
+  if (error) throw new Error(`Failed to link ${email}: ${error.message}`);
+}
+
 let linked = 0;
 for (const user of SEED_USERS) {
   const authId = await ensureAuthUser(user.email);
-  const { error } = await admin
-    .from("users")
-    .update({ auth_user_id: authId })
-    .eq("id", user.id);
-  if (error) throw new Error(`Failed to link ${user.email}: ${error.message}`);
+  if (!linkViaPsql(user.id, authId)) {
+    await linkViaRest(user.id, authId, user.email);
+  }
   process.stdout.write(`  ✓ linked ${user.email} → auth ${authId}\n`);
   linked += 1;
 }
