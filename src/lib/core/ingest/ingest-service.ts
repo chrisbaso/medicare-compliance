@@ -42,6 +42,7 @@ export function validateCsvAgainstFormat(
 
   const errors: RowError[] = [];
   const validRows: CanonicalClientRow[] = [];
+  const validRowNumbers: number[] = [];
 
   // Resolve each mapped column to a header index.
   const headerIndex = new Map<string, number>();
@@ -60,6 +61,7 @@ export function validateCsvAgainstFormat(
       formatKey: format.key,
       totalRows: parsed.rows.length,
       validRows: [],
+      validRowNumbers: [],
       errors: missingRequired.map((c) => ({
         rowNumber: 0,
         message: `Required column for '${c.col.field}' not found in header (expected one of: ${c.col.aliases.join(", ")}).`
@@ -110,10 +112,11 @@ export function validateCsvAgainstFormat(
       rowErrors.forEach((message) => errors.push({ rowNumber, message }));
     } else {
       validRows.push(row as CanonicalClientRow);
+      validRowNumbers.push(rowNumber);
     }
   });
 
-  return { formatKey: format.key, totalRows: parsed.rows.length, validRows, errors, warnings };
+  return { formatKey: format.key, totalRows: parsed.rows.length, validRows, validRowNumbers, errors, warnings };
 }
 
 /**
@@ -152,6 +155,102 @@ export async function commitIngest(
   const { error, count } = await supabase.from("clients").insert(records, { count: "exact" });
   if (error) throw new Error(error.message);
   return { inserted: count ?? records.length };
+}
+
+/**
+ * Duplicate detection.
+ *
+ * Identity key: normalized last name + first name + DOB (the classic triple);
+ * an email or phone match is also treated as the same person. In-file
+ * duplicates are always errors (which copy wins is ambiguous — the file needs
+ * cleaning). Duplicates against the EXISTING book are errors by default, or
+ * can be explicitly skipped for re-imports (onDuplicate: "skip").
+ */
+
+function digitsOnly(value: string | undefined): string {
+  return (value ?? "").replace(/\D/g, "");
+}
+
+export function identityKey(row: Pick<CanonicalClientRow, "first_name" | "last_name" | "dob">): string {
+  const norm = (s: string | undefined) => (s ?? "").trim().toLowerCase().replace(/[^a-z]/g, "");
+  return `${norm(row.last_name)}|${norm(row.first_name)}|${row.dob ?? ""}`;
+}
+
+/** In-file duplicates: every row after the first occurrence of an identity is an error. */
+export function findInFileDuplicates(rows: CanonicalClientRow[], rowNumbers?: number[]): RowError[] {
+  const seenIdentity = new Map<string, number>();
+  const seenEmail = new Map<string, number>();
+  const seenPhone = new Map<string, number>();
+  const errors: RowError[] = [];
+
+  rows.forEach((row, i) => {
+    const rowNumber = rowNumbers?.[i] ?? i + 1;
+    const key = identityKey(row);
+    const email = row.email?.toLowerCase();
+    const phone = digitsOnly(row.phone);
+
+    const idHit = seenIdentity.get(key);
+    const emailHit = email ? seenEmail.get(email) : undefined;
+    const phoneHit = phone.length >= 10 ? seenPhone.get(phone) : undefined;
+    const firstHit = idHit ?? emailHit ?? phoneHit;
+
+    if (firstHit !== undefined) {
+      errors.push({
+        rowNumber,
+        message: `Duplicate of row ${firstHit} in this file (same ${idHit !== undefined ? "name and DOB" : emailHit !== undefined ? "email" : "phone"}). Remove one copy.`
+      });
+      return;
+    }
+    seenIdentity.set(key, rowNumber);
+    if (email) seenEmail.set(email, rowNumber);
+    if (phone.length >= 10) seenPhone.set(phone, rowNumber);
+  });
+
+  return errors;
+}
+
+export interface ExistingClientIdentity {
+  first_name: string;
+  last_name: string;
+  dob: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+/** Rows that match a client already in the org's book. */
+export function findExistingDuplicates(
+  rows: CanonicalClientRow[],
+  existing: ExistingClientIdentity[],
+  rowNumbers?: number[]
+): RowError[] {
+  const identities = new Set(existing.map((c) => identityKey({ first_name: c.first_name, last_name: c.last_name, dob: c.dob ?? undefined })));
+  const emails = new Set(existing.map((c) => c.email?.toLowerCase()).filter(Boolean));
+  const phones = new Set(existing.map((c) => digitsOnly(c.phone ?? undefined)).filter((p) => p.length >= 10));
+
+  const hits: RowError[] = [];
+  rows.forEach((row, i) => {
+    const byIdentity = identities.has(identityKey(row));
+    const byEmail = row.email ? emails.has(row.email.toLowerCase()) : false;
+    const byPhone = digitsOnly(row.phone).length >= 10 && phones.has(digitsOnly(row.phone));
+    if (byIdentity || byEmail || byPhone) {
+      hits.push({
+        rowNumber: rowNumbers?.[i] ?? i + 1,
+        message: `Already in the book (matched by ${byIdentity ? "name and DOB" : byEmail ? "email" : "phone"}).`
+      });
+    }
+  });
+  return hits;
+}
+
+/** Fetch the identity fields of the org's existing clients (RLS-scoped). */
+export async function loadExistingIdentities(
+  supabase: AppSupabaseClient
+): Promise<ExistingClientIdentity[]> {
+  const { data, error } = await supabase
+    .from("clients")
+    .select("first_name, last_name, dob, email, phone");
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
 /** Normalize common US date formats to ISO yyyy-mm-dd. Throws when unparseable. */

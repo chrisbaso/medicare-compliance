@@ -46,6 +46,8 @@ export interface IngestValidationResult {
   formatKey: string;
   totalRows: number;
   validRows: CanonicalClientRow[];
+  /** Original 1-based data-row number for each entry in validRows. */
+  validRowNumbers: number[];
   errors: RowError[];
   warnings: string[];
 }

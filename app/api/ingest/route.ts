@@ -4,6 +4,9 @@ import { createServerClient } from "@/lib/core/supabase/server";
 import {
   commitIngest,
   detectFormat,
+  findExistingDuplicates,
+  findInFileDuplicates,
+  loadExistingIdentities,
   validateCsvAgainstFormat
 } from "@/lib/core/ingest/ingest-service";
 import { getMedicareCrmFormat, medicareCrmFormats } from "@/lib/verticals/medicare/crm-formats";
@@ -31,7 +34,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  let body: { csvBase64?: string; formatKey?: string; dryRun?: boolean };
+  let body: {
+    csvBase64?: string;
+    formatKey?: string;
+    dryRun?: boolean;
+    onDuplicate?: "error" | "skip";
+  };
   try {
     body = await request.json();
   } catch {
@@ -83,6 +91,34 @@ export async function POST(request: Request) {
 
   const validation = validateCsvAgainstFormat(buffer, format);
   const dryRun = body.dryRun !== false; // default true — committing is explicit
+  const onDuplicate = body.onDuplicate === "skip" ? "skip" : "error";
+
+  // In-file duplicates are ALWAYS errors: which copy wins is ambiguous.
+  validation.errors.push(...findInFileDuplicates(validation.validRows, validation.validRowNumbers));
+
+  // Duplicates against the existing book: error by default; explicit skip for re-imports.
+  let skippedDuplicates = 0;
+  const supabase = await createServerClient();
+  const existing = await loadExistingIdentities(supabase);
+  const existingHits = findExistingDuplicates(validation.validRows, existing, validation.validRowNumbers);
+  if (existingHits.length > 0) {
+    if (onDuplicate === "skip") {
+      const skipRows = new Set(existingHits.map((h) => h.rowNumber));
+      const keptRows: typeof validation.validRows = [];
+      const keptNumbers: number[] = [];
+      validation.validRows.forEach((row, i) => {
+        if (skipRows.has(validation.validRowNumbers[i])) return;
+        keptRows.push(row);
+        keptNumbers.push(validation.validRowNumbers[i]);
+      });
+      skippedDuplicates = validation.validRows.length - keptRows.length;
+      validation.validRows = keptRows;
+      validation.validRowNumbers = keptNumbers;
+      validation.warnings.push(`${skippedDuplicates} row(s) skipped: already in the book.`);
+    } else {
+      validation.errors.push(...existingHits);
+    }
+  }
 
   const summary = {
     formatKey: validation.formatKey,
@@ -91,6 +127,7 @@ export async function POST(request: Request) {
     errorCount: validation.errors.length,
     errors: validation.errors.slice(0, 100), // cap the report size
     warnings: validation.warnings,
+    skippedDuplicates,
     dryRun
   };
 
@@ -105,7 +142,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = await createServerClient();
   const { inserted } = await commitIngest(supabase, currentUser.organizationId, validation);
   return NextResponse.json({ ...summary, committed: true, inserted });
 }

@@ -4,7 +4,10 @@ import {
   detectFormat,
   validateCsvAgainstFormat,
   commitIngest,
-  normalizeUsDate
+  normalizeUsDate,
+  identityKey,
+  findInFileDuplicates,
+  findExistingDuplicates
 } from "./ingest-service";
 import { medicareCrmFormats, getMedicareCrmFormat } from "@/lib/verticals/medicare/crm-formats";
 import { AppSupabaseClient } from "@/lib/core/repositories/operations-repository";
@@ -144,6 +147,7 @@ describe("commitIngest", () => {
         formatKey: "generic-csv",
         totalRows: 2,
         validRows: [{ first_name: "A", last_name: "B", state: "IL", status: "watch" }],
+        validRowNumbers: [1],
         errors: [{ rowNumber: 2, message: "bad" }],
         warnings: []
       })
@@ -157,10 +161,75 @@ describe("commitIngest", () => {
       formatKey: "generic-csv",
       totalRows: 1,
       validRows: [{ first_name: "A", last_name: "B", state: "IL", status: "watch" }],
+      validRowNumbers: [1],
       errors: [],
       warnings: []
     });
     expect(inserted).toBe(1);
     expect(capture.records?.every((r) => r.organization_id === "org-from-session")).toBe(true);
+  });
+});
+
+describe("duplicate detection", () => {
+  const row = (overrides: Record<string, string> = {}) => ({
+    first_name: "Harold",
+    last_name: "Bennett",
+    dob: "1954-02-09",
+    state: "IL",
+    status: "watch",
+    ...overrides
+  });
+
+  it("identityKey normalizes case and punctuation", () => {
+    expect(identityKey(row({ first_name: "HAROLD", last_name: "O'Bennett" }))).toBe(
+      identityKey(row({ first_name: "harold", last_name: "obennett" }))
+    );
+  });
+
+  it("flags in-file duplicates by name+DOB, email, and phone — first occurrence wins", () => {
+    const rows = [
+      row(),
+      row(), // dup by identity
+      row({ first_name: "Different", last_name: "Person", dob: "1960-01-01", email: "x@example.com" }),
+      row({ first_name: "Other", last_name: "Name", dob: "1961-01-01", email: "X@EXAMPLE.COM" }), // dup by email
+      row({ first_name: "Third", last_name: "Human", dob: "1962-01-01", phone: "(312) 555-0100" }),
+      row({ first_name: "Fourth", last_name: "Being", dob: "1963-01-01", phone: "312-555-0100" }) // dup by phone
+    ];
+    const errors = findInFileDuplicates(rows);
+    expect(errors.map((e) => e.rowNumber)).toEqual([2, 4, 6]);
+    expect(errors[0].message).toMatch(/Duplicate of row 1/);
+    expect(errors[1].message).toMatch(/same email/);
+    expect(errors[2].message).toMatch(/same phone/);
+  });
+
+  it("maps in-file duplicate row numbers through validRowNumbers", () => {
+    const rows = [row(), row()];
+    const errors = findInFileDuplicates(rows, [3, 7]); // original file positions
+    expect(errors[0].rowNumber).toBe(7);
+    expect(errors[0].message).toMatch(/Duplicate of row 3/);
+  });
+
+  it("flags rows matching the existing book and leaves new clients alone", () => {
+    const existing = [
+      { first_name: "Harold", last_name: "Bennett", dob: "1954-02-09", email: null, phone: null },
+      { first_name: "A", last_name: "B", dob: null, email: "linda@example.com", phone: null }
+    ];
+    const rows = [
+      row(), // identity match
+      row({ first_name: "New", last_name: "Person", dob: "1960-05-05", email: "linda@example.com" }), // email match
+      row({ first_name: "Truly", last_name: "New", dob: "1961-06-06" })
+    ];
+    const hits = findExistingDuplicates(rows, existing);
+    expect(hits.map((h) => h.rowNumber)).toEqual([1, 2]);
+    expect(hits[0].message).toMatch(/name and DOB/);
+    expect(hits[1].message).toMatch(/email/);
+  });
+
+  it("does not treat short/absent phones as a match key", () => {
+    const rows = [
+      row({ first_name: "A", last_name: "A", dob: "1950-01-01", phone: "555" }),
+      row({ first_name: "B", last_name: "B", dob: "1951-01-01", phone: "555" })
+    ];
+    expect(findInFileDuplicates(rows)).toHaveLength(0);
   });
 });

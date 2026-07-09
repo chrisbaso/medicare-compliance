@@ -39,6 +39,7 @@ async function fileToBase64(file: File): Promise<string> {
 export default function OnboardingPage() {
   const [file, setFile] = useState<File | null>(null);
   const [formatKey, setFormatKey] = useState<string>("");
+  const [skipDuplicates, setSkipDuplicates] = useState(false);
   const [summary, setSummary] = useState<IngestSummary | null>(null);
   const [step, setStep] = useState<Step>("select");
   const [busy, setBusy] = useState(false);
@@ -56,6 +57,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           csvBase64,
           ...(formatKey ? { formatKey } : {}),
+          onDuplicate: skipDuplicates ? "skip" : "error",
           dryRun
         })
       });
@@ -116,6 +118,15 @@ export default function OnboardingPage() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-stone-700">
+            <input
+              type="checkbox"
+              checked={skipDuplicates}
+              onChange={(e) => setSkipDuplicates(e.target.checked)}
+              className="h-4 w-4 rounded border-stone-300"
+            />
+            <span>Re-import: skip clients already in the book</span>
           </label>
           <Button disabled={!file || busy} onClick={() => runIngest(true)}>
             {busy && step === "select" ? "Validating…" : "Validate (dry run)"}
