@@ -1,0 +1,9 @@
+first_name,last_name,dob,phone,email,state,status,note
+Margaret,Ellis,9/14/1961,312-555-0145,margaret.ellis@example.com,IL,new_to_medicare,Clean row for contrast
+Harold,Bennett,2/9/1954,217-555-0118,harold.bennett@example.com,IL,active_review,Clean row for contrast
+Vera,Tillman,not-a-date,312-555-0102,vera.tillman@example.com,IL,active_review,Bad birth date on purpose
+Stanley,Bloom,3/40/1950,708-555-0111,stanley.bloom@example.com,IL,watch,Out-of-range birth date on purpose
+,Nguyen,6/2/1953,630-555-0126,missing.first@example.com,IL,active_review,Missing first name on purpose
+Alma,Reyes,8/19/1949,224-555-0148,alma.reyes,IL,service_only,Bad email address on purpose
+Curtis,Vaughn,12/1/1957,331-555-0193,curtis.vaughn@example.com,XX,active_review,Unknown state code on purpose
+Harold,Bennett,2/9/1954,217-555-0118,harold.bennett@example.com,IL,active_review,Duplicate of row 2 on purpose

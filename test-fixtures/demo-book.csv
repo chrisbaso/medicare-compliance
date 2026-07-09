@@ -1,0 +1,16 @@
+first_name,last_name,dob,phone,email,state,status,note
+Margaret,Ellis,9/14/1961,312-555-0145,margaret.ellis@example.com,IL,new_to_medicare,Referred by daughter; turning 65 this fall
+Harold,Bennett,2/9/1954,217-555-0118,harold.bennett@example.com,IL,active_review,Mentioned premium increase concern on last renewal
+Linda,Park,10/22/1956,630-555-0160,linda.park@example.com,IL,watch,Renewal packet missing signature page
+Walter,Griggs,11/2/1961,847-555-0132,walter.griggs@example.com,IL,new_to_medicare,Turning 65; wants plain-English explanation of Part D
+Doris,Whitfield,3/18/1950,708-555-0177,doris.whitfield@example.com,IL,service_only,Open billing question on last statement
+Raymond,Otero,6/30/1949,224-555-0190,raymond.otero@example.com,IL,active_review,Wife passed in March; household coverage needs review
+Pauline,Marsh,12/5/1961,331-555-0122,pauline.marsh@example.com,IL,new_to_medicare,Initial enrollment questions; SOA not yet captured
+Ernest,Kowalski,8/8/1947,773-555-0154,ernest.kowalski@example.com,IL,watch,CD maturing this summer per his comment; do not discuss products without separate consent
+Gloria,Sandoval,4/27/1952,312-555-0166,gloria.sandoval@example.com,IL,active_review,Premium increase letter received; affordability worry
+Frank,DeLuca,1/16/1948,847-555-0141,frank.deluca@example.com,IL,service_only,Address change and claim follow-up pending
+Betty,Nash,7/3/1955,630-555-0183,betty.nash@example.com,IL,active_review,No recent contact; long-time client
+Cecil,Hardin,5/21/1946,217-555-0139,cecil.hardin@example.com,IL,watch,Asked about retirement income once; consent status must be checked before any follow-up
+Ruth,Feldman,10/9/1953,708-555-0128,ruth.feldman@example.com,IL,active_review,Missing document: upload instructions were sent twice
+Leon,Abernathy,9/28/1961,224-555-0175,leon.abernathy@example.com,IL,new_to_medicare,Turning 65; brother is existing client
+Marie,Castellano,2/14/1951,331-555-0117,marie.castellano@example.com,IL,service_only,Mailing preference update requested
