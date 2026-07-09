@@ -107,6 +107,16 @@ export async function getOpenBlockingFlagsForConversation(
   return (data ?? []).map((row) => ({ rule_id: row.rule_id }));
 }
 
+export async function listAuditEvents(supabase: AppSupabaseClient) {
+  const { data, error } = await supabase
+    .from("audit_logs")
+    .select("*")
+    .order("event_at", { ascending: false });
+
+  throwIfSupabaseError(error);
+  return (data ?? []).map(auditLogRowToAuditEvent);
+}
+
 export async function insertAuditLog(
   supabase: AppSupabaseClient,
   event: Inserts<"audit_logs">
