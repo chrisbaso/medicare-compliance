@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/demo-selectors";
 const navItems: SidebarNavItem[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/book", label: "Book intelligence" },
+  { href: "/onboarding", label: "Book onboarding" },
   { href: "/clients", label: "Clients" },
   { href: "/conversations", label: "Conversations" },
   { href: "/consents", label: "Consents" },
