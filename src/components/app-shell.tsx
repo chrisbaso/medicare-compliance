@@ -14,6 +14,7 @@ const navItems: SidebarNavItem[] = [
   { href: "/consents", label: "Consents" },
   { href: "/opportunities", label: "Retirement follow-up" },
   { href: "/compliance", label: "Compliance" },
+  { href: "/audit-pack", label: "Audit-prep pack" },
   { href: "/tasks", label: "Tasks" }
 ];
 
