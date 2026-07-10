@@ -70,6 +70,7 @@ async function check(name, fn) {
 
 const agent = await clientFor(AGENT_EMAIL);
 const reviewer = await clientFor(REVIEWER_EMAIL);
+const manager = await clientFor("dana@northstar.example"); // role: manager
 
 await check("agent CANNOT delete a client", async () => {
   await agent.from("clients").delete().eq("id", SEED_CLIENT_ID);
@@ -145,6 +146,37 @@ await check("record_review_call enforces the per-org limit atomically", async ()
     p_limit: 1
   });
   assert.equal(second.data?.[0]?.allowed, false, "second call over limit must be rejected");
+});
+
+const SEED_OPPORTUNITY_ID = "77777777-7777-4777-8777-777777777701";
+
+await check("agent CANNOT record a retirement outcome", async () => {
+  await agent
+    .from("retirement_opportunities")
+    .update({ outcome: "placed", commission_amount: 9999 })
+    .eq("id", SEED_OPPORTUNITY_ID);
+  const { data } = await manager
+    .from("retirement_opportunities")
+    .select("outcome")
+    .eq("id", SEED_OPPORTUNITY_ID)
+    .maybeSingle();
+  assert.notEqual(data?.outcome, "placed", "agent must not be able to record outcomes");
+});
+
+await check("manager CAN record a retirement outcome with economics", async () => {
+  const { error } = await manager
+    .from("retirement_opportunities")
+    .update({ outcome: "placed", premium_written: 100000, commission_amount: 6500 })
+    .eq("id", SEED_OPPORTUNITY_ID);
+  assert.equal(error, null, error?.message);
+  const { data } = await manager
+    .from("retirement_opportunities")
+    .select("outcome, premium_written, commission_amount")
+    .eq("id", SEED_OPPORTUNITY_ID)
+    .maybeSingle();
+  assert.equal(data?.outcome, "placed");
+  assert.equal(Number(data?.premium_written), 100000);
+  assert.equal(Number(data?.commission_amount), 6500);
 });
 
 if (failures > 0) {

@@ -1,57 +1,54 @@
 # STATUS
 
-Date: 2026-05-01
+Date: 2026-07-10
+Branch: `review/full-audit` (contains everything below; `main` is behind — merge when ready)
 
-## What works today (verified)
+## What works today (verified by CI on every push)
 
-- `npm install` completes for the current dependency set.
-- `npm run build` passes.
-- `npm run typecheck` passes.
-- `npm test` passes using the current in-process contract test runner. This is temporary and will be replaced by Vitest in this session.
-- Official packages are now installed: `@supabase/supabase-js`, `@supabase/ssr`, `@anthropic-ai/sdk`, `zod`, `@t3-oss/env-nextjs`, `vitest`, `@vitest/ui`, `@playwright/test`, `eslint`, and `eslint-config-next`.
-- The app builds as a Next.js demo shell with in-memory state.
-- The existing UI surfaces conversation review, consent ledger, retirement-income follow-up separation, compliance dashboard, client views, and tasks from local demo data.
-- The deterministic AI review fallback exists locally and can return preview flags without a live Anthropic key.
-- `src/lib/core/supabase/browser.ts`, `src/lib/core/supabase/server.ts`, and `src/lib/core/supabase/service.ts` use the official Supabase SDK helpers.
-- `src/lib/core/llm/anthropic.ts` uses the official Anthropic SDK behind the existing `LlmProvider` interface.
-- Environment validation now uses `@t3-oss/env-nextjs` and `zod`, with server-only secrets isolated from browser imports.
-- Auth middleware refreshes Supabase sessions and redirects protected routes to `/sign-in` when Supabase is configured.
-- Server-side auth helpers can resolve the current Supabase Auth user to `public.users`, `public.user_roles`, and `public.organizations`.
-- The sign-in form uses Supabase Auth and redirects to `/dashboard`; `/sign-out` clears the Supabase session.
-- Local demo inspection without Supabase Auth is available only when `DEMO_BYPASS_AUTH=true` and `NODE_ENV` is not `production`.
-- `POST /api/conversations/[id]/review` reads conversation transcript and consent state from Supabase, runs the AI review pipeline server-side, and persists Anthropic-backed flags through a Postgres RPC.
-- `supabase/migrations/202604300001_review_rpc.sql` adds the transactional `insert_review_results` function for compliance flags plus audit logging.
-- `/conversations/[id]` now renders a Supabase-backed review surface for UUID conversation IDs while preserving the existing local demo component for legacy `conv-*` demo IDs.
+- `npm run verify` = typecheck + compliance lint + 119 unit tests (Vitest) +
+  6 contract tests + Next.js production build. Green.
+- GitHub Actions CI boots a **live local Supabase**, applies all migrations,
+  seeds, links auth users, runs `verify`, and then runs a **behavioral RLS
+  suite** (role gating, org isolation, conversation scoping, atomic rate
+  limit, outcome recording permissions). Green.
+- **Security spine:** auth enforced on all `/api/*` routes (401 JSON),
+  role-gated RLS (agents cannot delete clients / override flags / record
+  outcomes), transcript PII sanitization before the AI provider,
+  prompt-injection hardening with a post-generation content check, per-org
+  daily AI rate limit (atomic RPC), explicit table grants.
+- **Book Intelligence:** CSV ingest for four CRM export formats
+  (`/onboarding`: auto-detect, dry-run report, all-or-nothing commit,
+  duplicate detection with re-import skip) → eight-rule opportunity scoring →
+  prioritized outreach queue (`/book`, live data with demo fallback).
+- **Retirement pipeline** (`/retirement-pipeline`): compliant funnel
+  signal → separate consent → licensed workflow, with outcome economics
+  (placements, premium written, commission) recorded via
+  `POST /api/opportunities/[id]/outcome` and displayed on the page.
+- **Audit-prep pack** (`/audit-pack`): date-ranged, print-ready examiner
+  report from live records — consent coverage, flag dispositions,
+  separation integrity, self-identified gap list.
+- **AI review:** `POST /api/conversations/[id]/review` on `claude-sonnet-5`
+  (env-overridable via `AI_REVIEW_MODEL`); deterministic fallback covers all
+  nine catalog rules when no key is configured.
+- Demo kit: `docs/DEMO_VIDEO_SCRIPTS.md` + `test-fixtures/demo-book*.csv`,
+  with tests pinning the demo's on-screen behavior.
 
-## What is scaffolded but not wired
+## Screens still on local demo state (not yet live-wired)
 
-- Supabase schema and seed SQL exist, but no live Supabase project is connected from this environment.
-- Repository helpers use typed Supabase clients, but most screens still render local demo state instead of querying Supabase.
-- The reducer-backed demo state now accepts the authenticated user as the current actor, but the screens still read most business data from local demo fixtures.
-- Seeded app users are not linked to `auth.users` yet because no live Supabase project exists in this environment.
-- AI review code is wired end-to-end for Supabase + Anthropic, but it has not been executed against a live Supabase project from this environment.
-- Audit and consent append-only behavior exists in SQL migrations and local helper logic, but has not been exercised against a live database from this environment.
+Dashboard, clients list/detail, conversations inbox, consents, compliance QA,
+tasks, opportunities. (`/book`, `/audit-pack`, `/retirement-pipeline`, and
+`/conversations/[id]` are live-wired with demo fallback.)
 
-## What is not started
+## Owner actions required before production (see docs/PRODUCTION_CUTOVER.md)
 
-- Vitest migration and Playwright e2e coverage.
-- Real ESLint migration.
-- Integration tests against local Supabase/Postgres.
+1. BAA with the AI provider (legal) — gates real beneficiary data only.
+2. Production Supabase project + secrets in the deploy environment.
+3. Production hosting under the BAA chain (AWS route recommended).
 
-## Current blockers and caveats
+## Known debt
 
-- No live Supabase project is configured in this environment, so migrations and RLS cannot be exercised against a real database here.
-- `supabase/seed.sql` app users have null `auth_user_id` values until the owner creates Supabase Auth users and links them.
-- `npm audit` reports two moderate vulnerabilities through `next` -> bundled `postcss`. The critical Next advisory was removed by upgrading `next` from 15.3.1 to 15.5.15. npm currently suggests a breaking downgrade to `next@9.3.3` for the remaining bundled PostCSS advisory, so that was not applied.
-
-## Resolved environment blocker
-
-Package installation previously failed because npm was in offline/cache-only mode. It was fixed by setting:
-
-```text
-registry=https://registry.npmjs.org/
-offline=false
-prefer-offline=false
-```
-
-SDK installation now succeeds.
+- Compliance rules are hard-coded TypeScript — annual CMS updates require a
+  deploy (rules-as-data is the planned fix).
+- Ingest commit path and outcome route are proven via RLS/CI, not by an
+  end-to-end HTTP integration test.
+- No transcription pipeline (deferred until an owned agency has recordings).
