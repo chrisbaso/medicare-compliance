@@ -17,10 +17,13 @@ export function createAnthropicProvider(): LlmProvider {
           content: message.content
         }));
 
+      // Forward sampling params only when explicitly set: current Claude
+      // models (Sonnet 5 / Opus 4.7+) reject a non-default temperature with
+      // a 400, so the wrapper must never inject one on its own.
       const response = await anthropic.messages.create({
         model: request.model,
-        max_tokens: request.maxTokens ?? 2000,
-        temperature: request.temperature ?? 0,
+        max_tokens: request.maxTokens ?? 4000,
+        ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
         system,
         messages
       });

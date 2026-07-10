@@ -8,8 +8,10 @@ import { medicareComplianceRules } from "@/lib/verticals/medicare/compliance-rul
 
 export interface AiReviewServiceOptions {
   provider?: LlmProvider;
-  model?: "claude-opus-4-1-20250805" | "claude-sonnet-4-20250514" | string;
+  model?: "claude-sonnet-5" | "claude-opus-4-8" | string;
 }
+
+export const DEFAULT_AI_REVIEW_MODEL = "claude-sonnet-5";
 
 export async function runAiComplianceReview(
   input: AiReviewInput,
@@ -30,11 +32,13 @@ export async function runAiComplianceReview(
     rules: medicareComplianceRules,
     transcript: sanitized
   });
-  const model = options.model ?? "claude-sonnet-4-20250514";
+  const model = options.model ?? DEFAULT_AI_REVIEW_MODEL;
+  // No temperature: current models reject non-default sampling params.
+  // maxTokens must leave headroom for adaptive thinking, which counts
+  // against the output budget on Sonnet 5.
   const response = await options.provider.complete({
     model,
-    temperature: 0,
-    maxTokens: 2000,
+    maxTokens: 8000,
     messages: [
       {
         role: "system",

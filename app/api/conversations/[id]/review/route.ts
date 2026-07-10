@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { runDeterministicAiReview } from "@/lib/core/ai-review/deterministic-review";
-import { runAiComplianceReview } from "@/lib/core/ai-review/review-service";
+import { DEFAULT_AI_REVIEW_MODEL, runAiComplianceReview } from "@/lib/core/ai-review/review-service";
 import { AiReviewInput, AiReviewResult } from "@/lib/core/ai-review/types";
 import { requireAnthropicEnv } from "@/lib/core/env/server";
 import { getCurrentUser } from "@/lib/core/auth/session";
@@ -183,7 +183,8 @@ export async function POST(_request: Request, context: ReviewRouteContext) {
     try {
       reviewResult = await runAiComplianceReview(reviewInput, {
         provider: createAnthropicProvider(),
-        model: "claude-sonnet-4-20250514"
+        // Overridable per environment so a model update never needs a deploy.
+        model: process.env.AI_REVIEW_MODEL ?? DEFAULT_AI_REVIEW_MODEL
       });
     } catch (error) {
       if (isModelOutputValidationError(error)) {
