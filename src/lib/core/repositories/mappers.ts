@@ -186,6 +186,8 @@ export function complianceFlagRowToComplianceFlag(row: ComplianceFlagRow): Compl
   };
 }
 
+const retirementOutcomes = ["pending", "placed", "declined", "closed"];
+
 export function retirementOpportunityRowToFollowupWorkflow(row: RetirementOpportunityRow): FollowupWorkflow {
   const explicitConsentStatus =
     row.explicit_consent_status === "expired" ? "revoked" : row.explicit_consent_status;
@@ -202,7 +204,11 @@ export function retirementOpportunityRowToFollowupWorkflow(row: RetirementOpport
     interestSummary: row.signal_summary,
     nextStep: row.next_step,
     requestedAt: row.requested_at,
-    lastUpdatedAt: row.last_updated_at
+    lastUpdatedAt: row.last_updated_at,
+    outcome: firstOrFallback(row.outcome, retirementOutcomes, "pending") as FollowupWorkflow["outcome"],
+    premiumWritten: row.premium_written,
+    commissionAmount: row.commission_amount,
+    outcomeRecordedAt: row.outcome_recorded_at
   };
 }
 

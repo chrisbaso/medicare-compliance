@@ -7,6 +7,7 @@ import {
 } from "@/lib/core/repositories/operations-repository";
 import { createServerClient } from "@/lib/core/supabase/server";
 import { buildRetirementFunnel } from "@/lib/verticals/medicare/retirement-funnel";
+import { summarizeRetirementOutcomes } from "@/lib/verticals/medicare/retirement-outcomes";
 
 /**
  * Retirement pipeline — the compliant funnel from retirement-adjacent signal
@@ -34,7 +35,8 @@ export default async function RetirementPipelinePage() {
   }
 
   const funnel = buildRetirementFunnel(liveData);
-  return <RetirementPipelineView funnel={funnel} source="live" />;
+  const outcomes = summarizeRetirementOutcomes(liveData.workflows);
+  return <RetirementPipelineView funnel={funnel} outcomes={outcomes} source="live" />;
 }
 
 async function loadLiveRecords() {

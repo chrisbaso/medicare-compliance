@@ -342,6 +342,11 @@ export interface Database {
           last_updated_at: string;
           next_step: string;
           metadata: Json;
+          outcome: string;
+          premium_written: number | null;
+          commission_amount: number | null;
+          outcome_recorded_at: string | null;
+          outcome_note: string | null;
         };
         Insert: {
           id?: string;
@@ -357,6 +362,11 @@ export interface Database {
           last_updated_at?: string;
           next_step: string;
           metadata?: Json;
+          outcome?: string;
+          premium_written?: number | null;
+          commission_amount?: number | null;
+          outcome_recorded_at?: string | null;
+          outcome_note?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["retirement_opportunities"]["Insert"]>;
         Relationships: [];

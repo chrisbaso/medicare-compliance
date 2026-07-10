@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { RetirementPipelineView } from "@/components/retirement/retirement-pipeline-view";
 import { useDemoApp } from "@/components/providers/demo-app-provider";
 import { buildRetirementFunnel } from "@/lib/verticals/medicare/retirement-funnel";
+import { summarizeRetirementOutcomes } from "@/lib/verticals/medicare/retirement-outcomes";
 
 /** Demo-state fallback for the retirement pipeline when Supabase is not configured. */
 export function DemoRetirementPipeline() {
@@ -19,5 +20,7 @@ export function DemoRetirementPipeline() {
     [state.clients, state.consentRecords, state.followupWorkflows]
   );
 
-  return <RetirementPipelineView funnel={funnel} source="demo" />;
+  const outcomes = summarizeRetirementOutcomes(state.followupWorkflows);
+
+  return <RetirementPipelineView funnel={funnel} outcomes={outcomes} source="demo" />;
 }

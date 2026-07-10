@@ -171,6 +171,11 @@ export interface FollowupWorkflow {
   nextStep: string;
   requestedAt: string;
   lastUpdatedAt: string;
+  /** Placement outcome recorded on the licensed workflow (live data only). */
+  outcome?: "pending" | "placed" | "declined" | "closed";
+  premiumWritten?: number | null;
+  commissionAmount?: number | null;
+  outcomeRecordedAt?: string | null;
 }
 
 export interface RetirementIncomeQueueEntry {

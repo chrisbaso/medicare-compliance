@@ -11,6 +11,10 @@ import {
   RetirementFunnelStage,
   RetirementSignalKind
 } from "@/lib/verticals/medicare/retirement-funnel";
+import {
+  formatUsd,
+  RetirementOutcomeSummary
+} from "@/lib/verticals/medicare/retirement-outcomes";
 
 const STAGE_META: Record<
   RetirementFunnelStage,
@@ -44,9 +48,11 @@ const SIGNAL_LABELS: Record<RetirementSignalKind, string> = {
 
 export function RetirementPipelineView({
   funnel,
+  outcomes,
   source
 }: {
   funnel: RetirementFunnel;
+  outcomes: RetirementOutcomeSummary;
   source: "live" | "demo";
 }) {
   const stages: RetirementFunnelStage[] = [
@@ -79,6 +85,34 @@ export function RetirementPipelineView({
           </Card>
         ))}
       </div>
+
+      <Card className="mt-6">
+        <CardHeader
+          eyebrow="Outcome economics"
+          title="What the pipeline has produced"
+          description="Recorded on the licensed workflow when a follow-up concludes. Every dollar below traces back to a documented, separate consent."
+        />
+        <div className="grid gap-4 lg:grid-cols-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Placements</p>
+            <p className="mt-2 font-serif text-3xl text-ink-950">{outcomes.placed}</p>
+            <p className="mt-1 text-sm text-stone-600">of {outcomes.totalOpportunities} consented opportunities</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Premium written</p>
+            <p className="mt-2 font-serif text-3xl text-ink-950">{formatUsd(outcomes.premiumWritten)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Commission earned</p>
+            <p className="mt-2 font-serif text-3xl text-ink-950">{formatUsd(outcomes.commissionEarned)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Placement rate</p>
+            <p className="mt-2 font-serif text-3xl text-ink-950">{outcomes.placementRatePercent}%</p>
+            <p className="mt-1 text-sm text-stone-600">{outcomes.stillOpen} still open</p>
+          </div>
+        </div>
+      </Card>
 
       <Card className="mt-6 border-amber-200 bg-amber-50/60">
         <p className="text-sm text-stone-700">
