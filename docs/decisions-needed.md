@@ -1,42 +1,42 @@
 # Decisions Needed
 
-This file records unresolved owner actions and decisions. Resolved troubleshooting history has been removed so the remaining items are actionable.
+Unresolved owner actions and decisions as of 2026-07-10. Technical setup that
+used to live here is now automated (`npm run setup:dev`, CI) or scripted in
+`docs/PRODUCTION_CUTOVER.md`.
 
-## Current Environment Status
+## Owner Actions Required (production only — demo/pilot needs none of these)
 
-- Branch in use: `main`.
-- Git push from this Codex session is working.
-- npm package installation is working against `https://registry.npmjs.org/`.
-- `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` have passed in this environment after the SDK/auth foundation changes.
+### Execute the BAA chain
+- AI provider (Anthropic direct, or AWS Bedrock via the self-service AWS BAA),
+  Supabase Team + HIPAA add-on, and a host covered by a BAA.
+- Gates real beneficiary data only. See `docs/PRODUCTION_CUTOVER.md` Gate 1.
 
-## Owner Actions Required
+### Create the production Supabase project and set deploy secrets
+- `supabase db push`, real org + admin (NOT the demo seed), PITR + one
+  rehearsed restore, secrets in the hosting environment.
+- See `docs/PRODUCTION_CUTOVER.md` Gates 2–3.
 
-### Configure a live Supabase project
+## Open Decisions
 
-- Needed for: exercising migrations, RLS policies, Supabase Auth, append-only triggers, and real audited writes.
-- Current state: schema and seed SQL exist locally, but no live Supabase project URL/keys are configured in this environment.
-- Required env vars:
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  - `SUPABASE_SERVICE_ROLE_KEY`
+### Merge `review/full-audit` into `main`
+- All work since the audit lives on `review/full-audit` (CI-green). `main` is
+  materially behind. Decide when to merge; nothing blocks it.
 
-### Link seeded users to Supabase Auth users
+### Hosting route
+- Recommended: Next.js on AWS under the same AWS BAA as Bedrock (cheapest
+  compliant chain). Alternative: Vercel Enterprise.
 
-- Needed for: real sign-in resolving to `public.users`, `public.user_roles`, and tenant-scoped RLS.
-- Current state: `supabase/seed.sql` creates app users, but `auth_user_id` is null because Auth users must be created in a real Supabase project.
-- Required action after creating Auth users: update each seeded `public.users.auth_user_id` with the matching `auth.users.id`.
-- Impact if skipped: Supabase Auth can authenticate a browser session, but server helpers will return no app user/organization because the Auth identity is not mapped to the tenant user table.
-
-### Configure Anthropic for live AI review
-
-- Needed for: real model-backed compliance review.
-- Current state: the official Anthropic SDK is wired, but no API key is configured here.
-- Required env var:
-  - `ANTHROPIC_API_KEY`
+### Partner-model legal structure
+- Commission-sharing mechanics for the retirement-lead partner arrangement
+  are state-by-state; needs ~1 hour of insurance-attorney review before the
+  first split is paid. Consent-script wording should name the outside
+  licensed partner explicitly.
 
 ## Product Decisions Made
 
-### Preserve the current demo UI shell while replacing infrastructure
-
-- Decision: Keep the existing screens and reducer-backed demo state until each slice is replaced with real Supabase-backed behavior.
-- Reason: The UI already preserves the Medicare / retirement-income separation and provides a usable demo shell while infrastructure is made real incrementally.
+- Keep demo state for not-yet-wired screens; wire screens to live Supabase
+  incrementally (done so far: `/book`, `/audit-pack`, `/retirement-pipeline`,
+  `/conversations/[id]`).
+- The platform never recommends plans or products; retirement signals are
+  suppressed until separate documented consent exists. This is load-bearing —
+  do not weaken.
